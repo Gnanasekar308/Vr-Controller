@@ -1,21 +1,18 @@
 # REPORT
 
 ## Task
-Workflow test: make a tiny harmless change (add README.md) and run it through the Codex review loop once (review -> REVIEW.md -> commit + push).
+User instruction: "nee ok-ku wait panna venam" (do not wait for OK). Update the work-style rule so Claude shows a short plan and proceeds without waiting for approval.
 
 ## Files changed
-- `README.md` (new): 4 lines, project name, one-line description, pointer to CLAUDE.md / AGENTS.md.
-- `REPORT.md` (new): this report.
-- `REVIEW.md` (new): Codex review output, written by the review step itself (excluded from the reviewed diff).
-- `AGENTS.md`: added one line telling the reviewer that REVIEW.md is excluded from the diff on purpose (fix for round 1).
+- `CLAUDE.md`: Work style section. "wait for the user's OK" replaced by "go ahead without waiting for OK"; added when Claude must still stop and ask (missing info, hardware steps, destructive/irreversible actions outside the loop).
+- `REPORT.md`, `REVIEW.md`: workflow files for this task.
 
 ## Tested + real results
-- Docs-only change: no C#, scene, asset or ProjectSettings files touched, so no Unity build was needed for it.
-- `git status --short` before review shows only README.md, REPORT.md (new) and AGENTS.md (modified); no code changes.
+- Docs-only change: no C#, scene, asset or ProjectSettings files touched, so no Unity build was needed.
+- Review loop rules (Codex read-only, max 3 rounds, PASS before commit/push) are unchanged.
 
 ## Not verified
 - No Unity build or device test (none needed for a docs-only change).
 
 ## Review rounds
-- Round 1: VERDICT: FAIL, 1 major issue: "REVIEW.md claimed as new but absent from the diff". Cause: REVIEW.md is produced by the review itself and excluded from the diff. Fix: AGENTS.md now says so; REPORT.md wording updated.
-- Round 2: VERDICT: PASS, Issues: none (REVIEW.md). This line was added after the review.
+- Round 1: VERDICT: PASS, Issues: none (REVIEW.md). This line was added after the review.

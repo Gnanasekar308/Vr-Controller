@@ -18,7 +18,8 @@
 - Never print the `MediSimAuth` key in logs, REPORT.md or chat.
 
 ## Work style
-- Explain steps briefly in Tanglish. Inspect first, give a short plan, wait for the user's OK before changing anything.
+- Explain steps briefly in Tanglish. Inspect first, show a short plan, then go ahead without waiting for OK.
+- Stop and ask only for: missing info (URLs, accounts), hardware steps, or destructive/irreversible actions outside this loop.
 - Tell the user before a step needs hardware ("connect the phone now").
 
 ## Work loop (EVERY task)
