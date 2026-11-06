@@ -9,6 +9,7 @@ You may read any file in the repo for context.
 - The staged diff, given in `<stdin>`.
 - `REPORT.md` (repo root): task, files changed, what was tested + real results/logs, what is not verified.
 - `REPORT.md` and `REVIEW.md` are workflow files and are always part of a change; do not flag them as unrelated.
+- `REVIEW.md` is written from your answer by this review step, so it is excluded from the diff on purpose. Do not report it as missing.
 
 ## Project facts
 - Unity 2021.3.45f2 project in `MediSimVR-Controller/`: phone controller app, Android, IL2CPP, ARM64.
