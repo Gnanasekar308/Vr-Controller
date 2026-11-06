@@ -1,0 +1,51 @@
+# ===== Repo root (E:\MediSimVR-Controller) =====
+# Old copies / backups / binaries - never commit
+/MediSimVR-Controller - verson1/
+/backup/
+/main-backup/
+/apk-file/
+*.zip
+*.apk
+*.aab
+
+# ===== Unity project (inner folder) =====
+# Anchored to the project root on purpose: Packages/MCPForUnity/Editor/Tools/Build is source code.
+/MediSimVR-Controller/[Ll]ibrary/
+/MediSimVR-Controller/[Tt]emp/
+/MediSimVR-Controller/[Oo]bj/
+/MediSimVR-Controller/[Ll]ogs/
+/MediSimVR-Controller/[Bb]uild/
+/MediSimVR-Controller/[Bb]uilds/
+/MediSimVR-Controller/[Uu]ser[Ss]ettings/
+/MediSimVR-Controller/[Mm]emoryCaptures/
+/MediSimVR-Controller/[Rr]ecordings/
+
+# Unity crash / build reports
+sysinfo.txt
+crashlytics-buildsettings.json
+*.apk.symbols.zip
+
+# ===== IDE / generated project files =====
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pdb.meta
+*.mdb.meta
+
+# ===== OS junk =====
+Thumbs.db
+Desktop.ini
+.DS_Store
