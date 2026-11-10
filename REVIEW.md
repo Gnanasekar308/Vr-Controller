@@ -1,4 +1,3 @@
 VERDICT: PASS
-
 Issues: none
-Notes: Round 4 fixes address the reported save-data loss. The reported pinch, two-finger gestures, and real Wi-Fi receiver connection remain unverified.
+Notes: Real touch input, the Editor mouse, and PC/Quest networking remain unverified, as listed in REPORT.md.

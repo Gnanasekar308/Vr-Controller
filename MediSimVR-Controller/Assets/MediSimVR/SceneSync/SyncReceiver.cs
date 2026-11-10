@@ -1,17 +1,20 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
 
-// Put this on the synced object (the cube, a child of "SyncWorld").
+// Put this on the scene root that holds the controllable objects ("SyncWorld"). Every SyncObject below it is
+// controllable from the phone; poses are relative to this transform.
 // A background thread listens on UDP SceneSyncProtocol.Port and checks the signature (pure .NET, no Unity API);
 // Update() parses the verified messages on the main thread. Only correctly signed MediSimVR messages are used.
-//   discover  -> reply "here" (device name, kind, CURRENT local pos/rot/scale) to the sender's ip:port
-//   transform -> move this object smoothly to the given local pos/rot/scale.
-//                Older (or equal) seq is ignored; after seqResetSeconds without an accepted transform any seq is accepted again.
+//   discover  -> reply "here" (device name, kind, object count) to the sender's ip:port
+//   getscene  -> reply the object list ("objects" parts) to the sender
+//   transform -> move that object smoothly to the given pos/rot/scale (+ locked flag).
+//                Per object: an older (or equal) seq from the same phone run (sid) is ignored; a new sid (phone restarted) is accepted.
 namespace MediSimVR.SceneSync
 {
     public class SyncReceiver : MonoBehaviour
@@ -19,14 +22,11 @@ namespace MediSimVR.SceneSync
         [Tooltip("Empty = automatic: \"Quest-\" (kind quest) or \"PC-\" (kind pc) + last 4 characters of SystemInfo.deviceUniqueIdentifier, uppercase.")]
         [SerializeField] private string deviceNameOverride = "";
         [SerializeField] private string kind = SceneSyncProtocol.KindQuest;
-        [Tooltip("Higher = follows the target faster.")]
-        [SerializeField] private float smoothing = 12f;
-        [Tooltip("After this many seconds without an accepted transform, a lower seq is accepted again (phone restarted).")]
-        [SerializeField] private float seqResetSeconds = 2f;
         [Tooltip("'Phone connected' while a valid signed message arrived within this many seconds.")]
         [SerializeField] private float connectedTimeout = 5f;
 
         public string DeviceName { get; private set; } = "";
+        public string Kind { get { return kind; } }
         public bool IsListening { get { return running; } }
         public string ListenError { get; private set; }
         public bool PhoneConnected { get { return lastValidTime >= 0f && Time.unscaledTime - lastValidTime < connectedTimeout; } }
@@ -34,6 +34,9 @@ namespace MediSimVR.SceneSync
         public int LastSeq { get; private set; }
         public int AcceptedTransforms { get; private set; }
         public int IgnoredOldTransforms { get; private set; }
+        public int UnknownIdTransforms { get; private set; }
+        public int SceneRequests { get; private set; }
+        public int ObjectCount { get { return objects.Count; } }
         public int DroppedPackets { get { return Interlocked.CompareExchange(ref dropped, 0, 0); } }
 
         private struct Incoming
@@ -42,27 +45,29 @@ namespace MediSimVR.SceneSync
             public IPEndPoint from;
         }
 
+        private struct SeqState
+        {
+            public int sid, seq;
+        }
+
         private readonly ConcurrentQueue<Incoming> inbox = new ConcurrentQueue<Incoming>();
         private readonly ConcurrentQueue<string> warnings = new ConcurrentQueue<string>(); // from the UDP thread, logged in Update()
+        private readonly Dictionary<string, SyncObject> objects = new Dictionary<string, SyncObject>();
+        private readonly List<string> order = new List<string>();  // ids in hierarchy order
+        private readonly Dictionary<string, SeqState> seqs = new Dictionary<string, SeqState>();
+        private readonly List<SyncObject> scanBuffer = new List<SyncObject>();
         private UdpClient udp;
         private Thread thread;
         private volatile bool running;
         private int dropped;
         private int lastDropLogTick;
-
-        private Vector3 targetPos;
-        private Quaternion targetRot;
-        private Vector3 targetScale;
-        private bool hasTarget;
-        private float lastAcceptTime = -1000f;
         private float lastValidTime = -1f;
+        private float lastRescan = -100f, lastUnknownLog = -100f;
 
         private void Awake()
         {
             DeviceName = string.IsNullOrWhiteSpace(deviceNameOverride) ? AutoName(kind) : deviceNameOverride.Trim();
-            targetPos = transform.localPosition;
-            targetRot = transform.localRotation;
-            targetScale = transform.localScale;
+            Rescan();
         }
 
         private void OnEnable() { StartListening(); }
@@ -86,6 +91,45 @@ namespace MediSimVR.SceneSync
             return prefix + clean.ToString(clean.Length - 4, 4).ToUpperInvariant();
         }
 
+        // ---------- objects ----------
+
+        // (re)collects the SyncObjects below this transform; duplicate ids get "-2", "-3", ...
+        public void Rescan()
+        {
+            lastRescan = Time.unscaledTime;
+            objects.Clear();
+            order.Clear();
+            scanBuffer.Clear();
+            GetComponentsInChildren(true, scanBuffer);
+            foreach (var so in scanBuffer)
+            {
+                if (so == null) continue;
+                string baseId = so.Id;
+                string uid = baseId;
+                for (int n = 2; objects.ContainsKey(uid); n++) uid = baseId + "-" + n;
+                if (uid != baseId) Debug.LogWarning("[MSVR] SyncObject id \"" + baseId + "\" is used twice; \"" + so.name + "\" is sent as \"" + uid + "\"");
+                objects[uid] = so;
+                order.Add(uid);
+                if (order.Count >= SceneSyncProtocol.MaxObjectsPerScene) break;
+            }
+            scanBuffer.Clear();
+        }
+
+        public bool TryGetObject(string id, out SyncObject so) { return objects.TryGetValue(id ?? "", out so); }
+
+        public List<SyncObjectInfo> DescribeAll()
+        {
+            var list = new List<SyncObjectInfo>(order.Count);
+            foreach (string uid in order)
+            {
+                SyncObject so;
+                if (objects.TryGetValue(uid, out so) && so != null) list.Add(so.Describe(transform, uid));
+            }
+            return list;
+        }
+
+        // ---------- network ----------
+
         private void StartListening()
         {
             if (running) return;
@@ -99,7 +143,7 @@ namespace MediSimVR.SceneSync
                 ListenError = null;
                 thread = new Thread(ReceiveLoop) { IsBackground = true, Name = "SceneSync-UDP" };
                 thread.Start();
-                Debug.Log("[MSVR] SyncReceiver listening on UDP " + SceneSyncProtocol.Port + " as " + DeviceName + " (kind " + kind + ")");
+                Debug.Log("[MSVR] SyncReceiver listening on UDP " + SceneSyncProtocol.Port + " as " + DeviceName + " (kind " + kind + "), " + objects.Count + " objects");
             }
             catch (Exception e)
             {
@@ -197,7 +241,8 @@ namespace MediSimVR.SceneSync
             while (warnings.TryDequeue(out w)) Debug.LogWarning(w);
 
             Incoming inc;
-            while (inbox.TryDequeue(out inc))
+            int n = 0;
+            while (n++ < 128 && inbox.TryDequeue(out inc))
             {
                 SceneSyncMessage msg;
                 string err;
@@ -205,74 +250,112 @@ namespace MediSimVR.SceneSync
                 else Drop(inc.from, err);
             }
             while (warnings.TryDequeue(out w)) Debug.LogWarning(w); // drops found while parsing
-
-            if (hasTarget)
-            {
-                float k = 1f - Mathf.Exp(-smoothing * Time.deltaTime);
-                transform.localPosition = Vector3.Lerp(transform.localPosition, targetPos, k);
-                transform.localRotation = Quaternion.Slerp(transform.localRotation, targetRot, k);
-                transform.localScale = Vector3.Lerp(transform.localScale, targetScale, k);
-            }
         }
 
         private void Handle(SceneSyncMessage msg, IPEndPoint from)
         {
-            lastValidTime = Time.unscaledTime;
-            LastSender = from.Address.ToString();
             switch (msg.type)
             {
                 case SceneSyncProtocol.TypeDiscover:
+                    MarkValid(from);
                     SendHere(from);
                     break;
+                case SceneSyncProtocol.TypeGetScene:
+                    MarkValid(from);
+                    SendScene(from);
+                    break;
                 case SceneSyncProtocol.TypeTransform:
+                    MarkValid(from);
                     ApplyTransform(msg, from);
                     break;
                 default:
-                    break; // e.g. "here" from another headset: not for us
+                    break; // e.g. "here" / "objects" from another receiver: not for us
+            }
+        }
+
+        private void MarkValid(IPEndPoint from)
+        {
+            lastValidTime = Time.unscaledTime;
+            LastSender = from.Address.ToString();
+        }
+
+        private void Send(string msg, IPEndPoint to, string what)
+        {
+            UdpClient client = udp;
+            if (client == null) return;
+            try
+            {
+                byte[] b = Encoding.UTF8.GetBytes(msg);
+                client.Send(b, b.Length, to);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[MSVR] could not send '" + what + "' to " + to + ": " + e.Message);
             }
         }
 
         private void SendHere(IPEndPoint to)
         {
-            UdpClient client = udp;
-            if (client == null) return;
-            Transform t = transform;
-            string reply = SceneSyncProtocol.BuildHere(DeviceName, kind, t.localPosition, t.localRotation, t.localScale);
-            try
-            {
-                byte[] b = Encoding.UTF8.GetBytes(reply);
-                client.Send(b, b.Length, to);
-                Debug.Log("[MSVR] discover from " + to + " -> sent: " + reply);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning("[MSVR] could not send 'here' to " + to + ": " + e.Message);
-            }
+            string reply = SceneSyncProtocol.BuildHere(DeviceName, kind, objects.Count);
+            Send(reply, to, "here");
+            Debug.Log("[MSVR] discover from " + to + " -> sent: " + reply);
+        }
+
+        private void SendScene(IPEndPoint to)
+        {
+            SceneRequests++;
+            Rescan();
+            var infos = DescribeAll();
+            var parts = SceneSyncProtocol.BuildObjectParts(infos);
+            foreach (string p in parts) Send(p, to, "objects");
+            Debug.Log("[MSVR] getscene from " + to + " -> sent " + infos.Count + " objects in " + parts.Count + " part(s)");
         }
 
         private void ApplyTransform(SceneSyncMessage m, IPEndPoint from)
         {
-            float now = Time.unscaledTime;
-            bool afterSilence = now - lastAcceptTime > seqResetSeconds;
-            if (!afterSilence && m.seq <= LastSeq)
+            SyncObject so;
+            if (string.IsNullOrEmpty(m.id) || !objects.TryGetValue(m.id, out so) || so == null)
+            {
+                if (Time.unscaledTime - lastRescan > 1f) Rescan(); // an object may have been added
+                if (string.IsNullOrEmpty(m.id) || !objects.TryGetValue(m.id, out so) || so == null)
+                {
+                    UnknownIdTransforms++;
+                    if (Time.unscaledTime - lastUnknownLog > 2f)
+                    {
+                        lastUnknownLog = Time.unscaledTime;
+                        Debug.LogWarning("[MSVR] transform for unknown object id \"" + m.id + "\" ignored (unknown total " + UnknownIdTransforms + ")");
+                    }
+                    return;
+                }
+            }
+
+            SeqState st;
+            if (seqs.TryGetValue(m.id, out st) && st.sid == m.sid && m.seq <= st.seq)
             {
                 IgnoredOldTransforms++;
                 if (IgnoredOldTransforms == 1 || IgnoredOldTransforms % 30 == 0)
-                    Debug.Log("[MSVR] transform seq " + m.seq + " ignored (last " + LastSeq + "), ignored total " + IgnoredOldTransforms);
+                    Debug.Log("[MSVR] transform " + m.id + " seq " + m.seq + " ignored (last " + st.seq + "), ignored total " + IgnoredOldTransforms);
                 return;
             }
 
+            Vector3 p, s;
+            Quaternion r;
+            if (!m.TryGetPos(out p) || !m.TryGetRot(out r) || !m.TryGetScale(out s))
+            {
+                Drop(from, "transform with bad pos/rot/scale");
+                return;
+            }
+
+            bool newSession = !seqs.ContainsKey(m.id) || st.sid != m.sid;
+            seqs[m.id] = new SeqState { sid = m.sid, seq = m.seq };
             LastSeq = m.seq;
-            lastAcceptTime = now;
-            Vector3 p; Quaternion r; Vector3 s;
-            if (m.TryGetPos(out p)) targetPos = p;
-            if (m.TryGetRot(out r)) targetRot = r;
-            if (m.TryGetScale(out s)) targetScale = s;
-            hasTarget = true;
+            bool lockChanged = so.Locked != m.locked;
+            so.Locked = m.locked;
+            so.SetTarget(transform, p, r, s);
             AcceptedTransforms++;
-            if (AcceptedTransforms == 1 || afterSilence || AcceptedTransforms % 30 == 0)
-                Debug.Log("[MSVR] transform seq " + m.seq + " from " + from + " accepted -> pos " + targetPos.ToString("F3") +
-                          " rot " + targetRot.eulerAngles.ToString("F1") + " scale " + targetScale.ToString("F3") +
+            if (AcceptedTransforms == 1 || newSession || lockChanged || AcceptedTransforms % 30 == 0)
+                Debug.Log("[MSVR] transform " + m.id + " seq " + m.seq + " from " + from + " accepted -> pos " + p.ToString("F3") +
+                          " rot " + r.eulerAngles.ToString("F1") + " scale " + s.ToString("F3") + (m.locked ? " locked" : "") +
                           " (accepted total " + AcceptedTransforms + ")");
         }
     }

@@ -11,10 +11,13 @@ using UnityEngine;
 
 namespace MediSimVR
 {
-    // Phone side of SceneSync (UDP 8771, signed messages, see SceneSyncProtocol).
-    // Multi-target: every receiver that answers "here" (kind "pc" or "quest") is kept and gets every transform.
-    // First "here" (before the user touched the cube) = the phone adopts that receiver's cube state and sends it to all.
-    // Receiving + signature check run on a background thread (pure .NET, no Unity API); Tick() (main thread) parses replies,
+    // Phone side of SceneSync v2 (UDP 8771, signed messages, see SceneSyncProtocol).
+    //  - discover every second (broadcast + manual IPs); every receiver that answers "here" (kind pc / quest) is a target.
+    //  - the FIRST receiver that answers is the scene source: the phone asks it for the object list ("getscene"),
+    //    then pushes its state to every other receiver so all of them match.
+    //  - each object's state goes to ALL targets: changed objects at most ~30 / s, a keep-alive round robin every 0.5 s,
+    //    and the full state to every receiver that appears later.
+    // Receiving + signature check run on a background thread (pure .NET, no Unity API); Tick() (main thread) parses,
     // logs and sends. Nothing here blocks the main thread.
     public class SceneSyncClient : IDisposable
     {
@@ -24,36 +27,60 @@ namespace MediSimVR
             public string Kind = "";
             public IPEndPoint End;
             public float LastSeen;
+            public int Count;
+            public bool NeedsFull;
+        }
+
+        private class NetObj
+        {
+            public string Id;
+            public Vector3 Pos, Scale;
+            public Quaternion Rot;
+            public bool Locked, Dirty;
         }
 
         public const float DiscoverEvery = 1f;      // broadcast + manual IPs
-        public const float KeepAliveEvery = 0.5f;   // transform even when nothing changed
-        public const float MinSendGap = 1f / 30f;   // max ~30 transforms / s while changing
+        public const float KeepAliveEvery = 0.5f;   // round robin of all objects, even when nothing changed
+        public const int KeepAlivePerTick = 8;      // objects per keep-alive tick
+        public const float MinSendGap = 1f / 30f;   // changed objects: max ~30 sends / s
         public const float LostAfter = 3f;          // no "here" for this long = receiver gone
+        public const float SceneRetryEvery = 1f;    // "getscene" again if the list is not complete
         public const int MaxTargets = 16;
 
-        public event Action<Vector3, Quaternion, Vector3, string> StateAdopted; // pose + receiver name
         public event Action TargetsChanged;
+        public event Action<List<SyncObjectInfo>, string> SceneReceived;   // object list + source name
 
         public IReadOnlyList<Target> Targets { get { return targets; } }
         public string Error { get; private set; }
         public int ManualCount { get { return manual.Count; } }
+        public int LocalPort { get; private set; }
+        public int Sid { get; private set; }
+        public bool HasScene { get; private set; }
+        public string SourceName { get; private set; } = "";
+        public bool WaitingForScene { get { return !HasScene && source != null; } }
+        public int SentTransforms { get; private set; }
 
         private readonly List<Target> targets = new List<Target>();
         private readonly List<IPAddress> manual = new List<IPAddress>();
         private readonly ConcurrentQueue<KeyValuePair<IPEndPoint, string>> inbox = new ConcurrentQueue<KeyValuePair<IPEndPoint, string>>(); // verified bodies
         private readonly ConcurrentQueue<string> warnings = new ConcurrentQueue<string>(); // from the receive thread, logged in Tick()
+        private readonly List<NetObj> net = new List<NetObj>();
+        private readonly Dictionary<string, NetObj> netById = new Dictionary<string, NetObj>();
         private List<IPAddress> broadcast = new List<IPAddress>();
         private UdpClient udp;
         private Thread rx;
         private volatile bool running;
         private int dropped, rxErrors, lastRxErrorTick;
-        private int seq;
-        private bool dirty, adoptAllowed = true;
-        private float nextDiscover, nextBroadcastRefresh, nextStartTry, lastSend = -100f, lastSendErrorLog = -100f;
-        private Vector3 pos = new Vector3(0f, 0.5f, 0f);
-        private Quaternion rot = Quaternion.identity;
-        private Vector3 scale = Vector3.one;
+        private int seq, roundRobin, sceneTries;
+        private float nextDiscover, nextBroadcastRefresh, nextStartTry, nextKeepAlive, nextSceneRequest;
+        private float lastDirtySend = -100f, lastSendErrorLog = -100f;
+        private Target source;
+        private List<SyncObjectInfo>[] parts;
+
+        public SceneSyncClient()
+        {
+            Sid = new System.Random().Next(1, int.MaxValue);
+        }
 
         // ---------- setup ----------
 
@@ -64,13 +91,14 @@ namespace MediSimVR
             {
                 udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0)); // any free port; receivers answer to it
                 udp.EnableBroadcast = true;
+                LocalPort = ((IPEndPoint)udp.Client.LocalEndPoint).Port;
                 running = true;
                 Error = null;
                 rx = new Thread(RxLoop) { IsBackground = true, Name = "SceneSync-Phone" };
                 rx.Start();
                 broadcast = BroadcastAddresses();
-                Debug.Log("[MediSimVR] SceneSync client on UDP " + ((IPEndPoint)udp.Client.LocalEndPoint).Port +
-                          ", discover to " + Join(broadcast) + (manual.Count > 0 ? " + manual " + Join(manual) : ""));
+                Debug.Log("[MediSimVR] SceneSync client on UDP " + LocalPort + ", discover to " + Join(broadcast) +
+                          (manual.Count > 0 ? " + manual " + Join(manual) : ""));
                 return true;
             }
             catch (Exception e)
@@ -112,14 +140,16 @@ namespace MediSimVR
             return ok;
         }
 
-        // The phone's current cube pose. userChange = the user moved / loaded / reset it, so no "here" state is adopted any more.
-        public void SetPose(Vector3 p, Quaternion r, Vector3 s, bool userChange)
+        // The state the receivers must have for one object (pose relative to SyncWorld + lock). Sent with the next Tick.
+        public void SetObjectState(string id, Vector3 pos, Quaternion rot, Vector3 scale, bool locked)
         {
-            pos = p;
-            rot = r;
-            scale = s;
-            dirty = true;
-            if (userChange) adoptAllowed = false;
+            NetObj o;
+            if (id == null || !netById.TryGetValue(id, out o)) return;
+            o.Pos = pos;
+            o.Rot = rot;
+            o.Scale = SceneSyncProtocol.ClampScale(scale);
+            o.Locked = locked;
+            o.Dirty = true;
         }
 
         // ---------- main thread ----------
@@ -145,12 +175,14 @@ namespace MediSimVR
                 string err;
                 if (!SceneSyncProtocol.TryParseBody(kv.Value, out m, out err)) { Debug.LogWarning("[MediSimVR] SceneSync ignored message from " + kv.Key + ": " + err); continue; }
                 if (m.type == SceneSyncProtocol.TypeHere) changed |= OnHere(kv.Key, m, now);
+                else if (m.type == SceneSyncProtocol.TypeObjects) OnObjects(kv.Key, m);
             }
 
             for (int i = targets.Count - 1; i >= 0; i--)
             {
                 if (now - targets[i].LastSeen <= LostAfter) continue;
                 Debug.Log("[MediSimVR] SceneSync lost " + targets[i].Name + " " + targets[i].End);
+                if (targets[i] == source) { source = null; parts = null; }
                 targets.RemoveAt(i);
                 changed = true;
             }
@@ -169,14 +201,8 @@ namespace MediSimVR
                 foreach (var a in manual) SendTo(d, new IPEndPoint(a, SceneSyncProtocol.Port), now);
             }
 
-            if (targets.Count > 0 && ((dirty && now - lastSend >= MinSendGap) || now - lastSend >= KeepAliveEvery))
-            {
-                seq++;
-                byte[] t = Encoding.UTF8.GetBytes(SceneSyncProtocol.BuildTransform(seq, pos, rot, scale));
-                foreach (var tg in targets) SendTo(t, tg.End, now);
-                lastSend = now;
-                dirty = false;
-            }
+            if (!HasScene) RequestScene(now);
+            else if (targets.Count > 0) SendStates(now);
 
             if (changed && TargetsChanged != null) TargetsChanged();
         }
@@ -191,32 +217,143 @@ namespace MediSimVR
             foreach (var x in targets) if (x.End.Equals(from)) { t = x; break; }
             if (t == null)
             {
+                // the same receiver seen on a second address (PC with two networks, or its IP changed)
+                foreach (var x in targets)
+                {
+                    if (x.Name != name || x.Kind != m.kind) continue;
+                    if (now - x.LastSeen < 1.5f) return false; // still answering on its first address: keep that one
+                    Debug.Log("[MediSimVR] SceneSync " + name + " moved " + x.End + " -> " + from);
+                    x.End = from;
+                    x.LastSeen = now;
+                    x.NeedsFull = HasScene;
+                    return true;
+                }
+            }
+            if (t == null)
+            {
                 if (targets.Count >= MaxTargets) return false;
-                t = new Target { End = from };
+                t = new Target { End = from, NeedsFull = HasScene }; // a late receiver gets the whole scene state
                 targets.Add(t);
                 changed = true;
-                Debug.Log("[MediSimVR] SceneSync found " + name + " (" + m.kind + ") at " + from + ", receivers now " + targets.Count);
+                Debug.Log("[MediSimVR] SceneSync found " + name + " (" + m.kind + ", " + m.count + " objects) at " + from + ", receivers now " + targets.Count);
             }
             if (t.Name != name || t.Kind != m.kind) changed = true;
             t.Name = name;
             t.Kind = m.kind;
+            t.Count = m.count;
             t.LastSeen = now;
 
-            Vector3 p, s;
-            Quaternion r;
-            if (adoptAllowed && m.TryGetPos(out p) && m.TryGetRot(out r) && m.TryGetScale(out s))
+            if (!HasScene && source == null)
             {
-                adoptAllowed = false;
-                pos = p;
-                rot = r;
-                scale = s;
-                dirty = true;
-                lastSend = -100f; // send it to everybody now
-                Debug.Log("[MediSimVR] SceneSync adopted cube state from " + name + ": pos " + p.ToString("F3") +
-                          " rot " + r.eulerAngles.ToString("F1") + " scale " + s.ToString("F3"));
-                if (StateAdopted != null) StateAdopted(p, r, s, name);
+                source = t; // the first receiver that answers is the source of the scene
+                parts = null;
+                sceneTries = 0;
+                nextSceneRequest = 0f;
+                Debug.Log("[MediSimVR] SceneSync scene source: " + name);
+                changed = true;
             }
             return changed;
+        }
+
+        private void RequestScene(float now)
+        {
+            if (source == null && targets.Count > 0)
+            {
+                source = targets[0];
+                parts = null;
+                sceneTries = 0;
+            }
+            if (source == null || now < nextSceneRequest) return;
+            if (sceneTries >= 5 && targets.Count > 1)
+            {
+                // no complete list from this receiver: try the next one
+                int i = targets.IndexOf(source);
+                source = targets[(i + 1) % targets.Count];
+                parts = null;
+                sceneTries = 0;
+                Debug.LogWarning("[MediSimVR] SceneSync no object list yet, asking " + source.Name + " instead");
+            }
+            nextSceneRequest = now + SceneRetryEvery;
+            sceneTries++;
+            SendTo(Encoding.UTF8.GetBytes(SceneSyncProtocol.BuildGetScene()), source.End, now);
+            Debug.Log("[MediSimVR] SceneSync getscene -> " + source.Name + " " + source.End + " (try " + sceneTries + ")");
+        }
+
+        private void OnObjects(IPEndPoint from, SceneSyncMessage m)
+        {
+            if (HasScene || source == null || !from.Equals(source.End)) return;
+            if (m.parts <= 0 || m.parts > 64 || m.part < 0 || m.part >= m.parts) return;
+            if (parts == null || parts.Length != m.parts) parts = new List<SyncObjectInfo>[m.parts];
+            var list = new List<SyncObjectInfo>();
+            if (m.objs != null) foreach (var o in m.objs) if (o != null && o.IsValid()) list.Add(o);
+            parts[m.part] = list;
+            foreach (var p in parts) if (p == null) return; // wait for the other parts
+
+            var all = new List<SyncObjectInfo>();
+            var seen = new HashSet<string>();
+            foreach (var p in parts) foreach (var o in p) if (seen.Add(o.id)) all.Add(o);
+            parts = null;
+            HasScene = true;
+            SourceName = source.Name;
+            net.Clear();
+            netById.Clear();
+            foreach (var o in all)
+            {
+                var no = new NetObj { Id = o.id, Pos = o.Pos, Rot = o.Rot, Scale = o.Scale, Locked = o.locked };
+                net.Add(no);
+                netById[o.id] = no;
+            }
+            foreach (var t in targets) t.NeedsFull = t != source; // everybody else gets the source's state
+            Debug.Log("[MediSimVR] SceneSync scene from " + source.Name + ": " + all.Count + " objects (sent total " + m.total + ")");
+            if (SceneReceived != null) SceneReceived(all, source.Name);
+        }
+
+        private void SendStates(float now)
+        {
+            // 1) changed objects -> all receivers, at most ~30 / s
+            if (now - lastDirtySend >= MinSendGap)
+            {
+                bool any = false;
+                foreach (var o in net)
+                {
+                    if (!o.Dirty) continue;
+                    o.Dirty = false;
+                    any = true;
+                    SendObject(o, null, now);
+                }
+                if (any) lastDirtySend = now;
+            }
+
+            // 2) a receiver that appeared after the scene arrived gets every object now
+            foreach (var t in targets)
+            {
+                if (!t.NeedsFull) continue;
+                t.NeedsFull = false;
+                foreach (var o in net) SendObject(o, t.End, now);
+                Debug.Log("[MediSimVR] SceneSync full state (" + net.Count + " objects) -> " + t.Name);
+            }
+
+            // 3) keep-alive: a few objects per tick, round robin, so lost packets are repaired
+            if (now >= nextKeepAlive && net.Count > 0)
+            {
+                nextKeepAlive = now + KeepAliveEvery;
+                int count = Math.Min(KeepAlivePerTick, net.Count);
+                for (int i = 0; i < count; i++)
+                {
+                    roundRobin = (roundRobin + 1) % net.Count;
+                    SendObject(net[roundRobin], null, now);
+                }
+            }
+        }
+
+        // to == null: every target
+        private void SendObject(NetObj o, IPEndPoint to, float now)
+        {
+            seq++;
+            byte[] b = Encoding.UTF8.GetBytes(SceneSyncProtocol.BuildTransform(Sid, seq, o.Id, o.Pos, o.Rot, o.Scale, o.Locked));
+            if (to != null) SendTo(b, to, now);
+            else foreach (var t in targets) SendTo(b, t.End, now);
+            SentTransforms++;
         }
 
         private void SendTo(byte[] data, IPEndPoint to, float now)

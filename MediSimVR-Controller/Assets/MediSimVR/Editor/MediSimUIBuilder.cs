@@ -1126,14 +1126,16 @@ namespace MediSimVR.EditorTools
             return b;
         }
 
-        // "Live Scene": status chip, 3D view (SyncWorld far from the UI, rendered to a RenderTexture), readout, modes, Save/Load/Reset
+        // "Live Scene" v2: status chip, tool + option rows, 3D view (SyncWorld far from the UI, rendered to a RenderTexture)
+        // with Undo / Redo / Reset and Top / Front / Side / 3D / Focus, bottom bar (Objects, Inspector, Live / On release),
+        // Objects (hierarchy) and Inspector bottom sheets.
         static AppScreen BuildScene(Transform parent)
         {
             var s = MakeScreen<SceneScreen>(parent, "Scene", ScreenId.Scene);
             Wave(s.transform);
             TextMeshProUGUI title, subT;
             Button backB;
-            var hdr = Header(s.transform, "Live Scene", "Move the cube here, it moves on PC and Quest", false, out title, out subT, out backB);
+            var hdr = Header(s.transform, "Live Scene", "Edit the Unity scene on PC and Quest", false, out title, out subT, out backB);
             s.linkButton = CircleButton(hdr, "Link", "link", 1f, -48f, 118f);
 
             var chip = Shape(s.transform, "StatusChip", ColorRole.Card, ShapeKind.Pill);
@@ -1148,48 +1150,288 @@ namespace MediSimVR.EditorTools
             s.statusText = Txt(chip.transform, "Status", "Searching PC / Quest on this Wi-Fi...", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
             Stretch(s.statusText.rectTransform, 88, 0, 32, 0);
 
+            // tools (like Unity W / E / R / T) + options
+            var toolRow = New("ToolRow", s.transform);
+            TopBand(toolRow, HeadH + 112f, 108f, 32f);
+            VLayout(toolRow.gameObject, 0, 0);
+            s.toolSeg = Seg(toolRow, "Tools", new[] { "Move", "Rotate", "Scale", "All" }, 108f, true, new[] { "swap_horiz", "refresh", "open_in_full", "view_in_ar" });
+
+            var optRow = New("OptionRow", s.transform);
+            TopBand(optRow, HeadH + 232f, 88f, 32f);
+            HLayout(optRow.gameObject, 10).childForceExpandWidth = false;
+            s.spaceSeg = Seg(optRow, "Space", new[] { "Local", "Global" }, 88f, true);
+            LE(s.spaceSeg, 88, 316, 0);
+            s.pivotSeg = Seg(optRow, "PivotMode", new[] { "Pivot", "Center" }, 88f, true);
+            LE(s.pivotSeg, 88, 316, 0);
+            Button chipButton;
+            s.snapChip = Chip(optRow, "Snap", "Snap", 176f, 88f, out chipButton);
+            s.snapButton = chipButton;
+            s.snapLongPress = chipButton.gameObject.AddComponent<LongPress>();
+            s.lockChip = Chip(optRow, "Lock", "Lock", 176f, 88f, out chipButton);
+            s.lockButton = chipButton;
+
+            // 3D view: fills the space between the option row and the bottom bar
             var frame = Shape(s.transform, "ViewFrame", ColorRole.Card, ShapeKind.Card);
-            TopBand(frame.rectTransform, HeadH + 124f, 960f);
-            ShadowFor(frame.rectTransform);
+            var fr = frame.rectTransform;
+            fr.anchorMin = Vector2.zero;
+            fr.anchorMax = Vector2.one;
+            fr.offsetMin = new Vector2(32f, 138f);
+            fr.offsetMax = new Vector2(-32f, -(HeadH + 336f));
+            ShadowFor(fr);
             frame.gameObject.AddComponent<Mask>().showMaskGraphic = true; // rounded corners for the 3D view
             var viewRt = New("View", frame.transform);
             Stretch(viewRt);
             var raw = viewRt.gameObject.AddComponent<RawImage>();
             raw.color = Color.white;
             s.view = raw;
-            var gestures = viewRt.gameObject.AddComponent<CubeGestures>();
-            gestures.view = viewRt;
-            s.gestures = gestures;
+            var input = viewRt.gameObject.AddComponent<SceneViewInput>();
+            input.view = raw;
+            s.input = input;
+
+            s.undoButton = ViewPill(frame.transform, "Undo", "Undo", 0f, 20f, 20f, 124f);
+            s.redoButton = ViewPill(frame.transform, "Redo", "Redo", 0f, 154f, 20f, 124f);
+            s.resetButton = ViewPill(frame.transform, "Reset", "Reset", 0f, 288f, 20f, 124f);
+            s.viewTopButton = ViewPill(frame.transform, "ViewTop", "Top", 1f, -20f, 20f, 116f);
+            s.viewFrontButton = ViewPill(frame.transform, "ViewFront", "Front", 1f, -20f, 100f, 116f);
+            s.viewSideButton = ViewPill(frame.transform, "ViewSide", "Side", 1f, -20f, 180f, 116f);
+            s.view3DButton = ViewPill(frame.transform, "View3D", "3D", 1f, -20f, 260f, 116f);
+            s.focusButton = ViewPill(frame.transform, "Focus", "Focus", 1f, -20f, 340f, 116f);
+
             var hintBg = Shape(frame.transform, "HintPill", ColorRole.Card, ShapeKind.Pill, 0.85f);
             hintBg.GetComponent<ThemedShape>().pillHeight = 64f;
             hintBg.raycastTarget = false;
-            BottomBand(hintBg.rectTransform, 18f, 64f, 40f);
+            BottomBand(hintBg.rectTransform, 18f, 64f, 30f);
             s.hintText = Txt(hintBg.transform, "Hint", "", TextRole.Small, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
             Stretch(s.hintText.rectTransform, 20, 0, 20, 0);
 
-            s.readoutText = Txt(s.transform, "Readout", "", TextRole.Caption, ColorRole.SubText);
-            TopBand(s.readoutText.rectTransform, HeadH + 1100f, 150f, 64f);
+            // bottom bar: Objects / Inspector sheets, Live or On release
+            var bar = New("BottomBar", s.transform);
+            BottomBand(bar, 24f, 96f, 32f);
+            HLayout(bar.gameObject, 12).childForceExpandWidth = false;
+            s.objectsButton = BarButton(bar, "Objects", "view_agenda", "Objects");
+            s.inspectorButton = BarButton(bar, "Inspector", "tune", "Inspector");
+            s.syncSeg = Seg(bar, "Sync", new[] { "Live", "On release" }, 96f, true);
+            LE(s.syncSeg, 96, 450, 0); // wide enough for "On release" on a phone
 
-            var modeRow = New("ModeRow", s.transform);
-            TopBand(modeRow, HeadH + 1270f, 120f);
-            VLayout(modeRow.gameObject, 0, 0);
-            s.modeSeg = Seg(modeRow, "Modes", new[] { "Move", "Rotate", "Scale" }, 120f, true, new[] { "swap_horiz", "refresh", "open_in_full" });
+            // Hierarchy sheet
+            GameObject sheetRoot;
+            Button close;
+            TextMeshProUGUI sheetTitle;
+            var hCard = Sheet(s.transform, "ObjectsSheet", "Objects", 1000f, out sheetRoot, out close, out sheetTitle);
+            s.hierarchySheet = sheetRoot;
+            s.hierarchyClose = close;
+            var hList = ScrollList(hCard, "List", 120f, 20f, false);
+            hList.GetComponent<VerticalLayoutGroup>().spacing = 14;
+            s.rowTemplate = HierarchyRow(hList);
+            s.hierarchyEmpty = Txt(hCard, "Empty", "No objects yet: waiting for the scene from a PC / Quest", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
+            TopBand(s.hierarchyEmpty.rectTransform, 150f, 80f, 40f);
 
-            var bar = New("Buttons", s.transform);
-            TopBand(bar, HeadH + 1420f, 96f);
-            HLayout(bar.gameObject, 24);
-            s.saveButton = SmallAction(bar, "Save", "check", "Save", ColorRole.Primary, 300f);
-            s.loadButton = SmallAction(bar, "Load", "folder_open", "Load", ColorRole.Primary, 300f);
-            s.resetButton = SmallAction(bar, "Reset", "restart_alt", "Reset", ColorRole.Text, 300f);
+            // Inspector sheet
+            var iCard = Sheet(s.transform, "InspectorSheet", "Inspector", 1180f, out sheetRoot, out close, out sheetTitle);
+            s.inspectorSheet = sheetRoot;
+            s.inspectorClose = close;
+            s.inspectorTitle = sheetTitle;
+            s.inspectorNote = Txt(iCard, "Note", "", TextRole.Small, ColorRole.SubText);
+            TopBand(s.inspectorNote.rectTransform, 104f, 44f, 40f);
+            var iList = ScrollList(iCard, "Fields", 156f, 16f, false);
+            iList.GetComponent<VerticalLayoutGroup>().spacing = 12;
+            string[] groups = { "Position (m)", "Rotation (deg)", "Scale" };
+            for (int g = 0; g < 3; g++)
+            {
+                var head = New("Head" + g, iList);
+                LE(head, 64);
+                HLayout(head.gameObject, 12).childForceExpandWidth = false;
+                var ht = Txt(head, "Title", groups[g], TextRole.Body, ColorRole.Text, TextWeight.Heading);
+                LE(ht, 64, -1, 1);
+                if (g == 2)
+                {
+                    s.uniformChip = Chip(head, "Uniform", "Uniform", 220f, 64f, out chipButton);
+                    s.uniformButton = chipButton;
+                }
+                for (int a = 0; a < 3; a++) s.fields.Add(FieldRow(iList, g, a));
+            }
+            var cp = New("CopyPaste", iList);
+            LE(cp, 96);
+            HLayout(cp.gameObject, 16);
+            s.copyButton = BarButton(cp, "Copy", "article", "Copy");
+            s.pasteButton = BarButton(cp, "Paste", "note_add", "Paste");
 
             // the 3D world, far away from everything else; its camera is enabled only while the tab is visible
             var w = SyncWorldBuilder.Build(new Vector3(1000f, 0f, 0f), "SceneCamera", new Color(0.90f, 0.93f, 0.97f));
             w.camera.enabled = false;
             s.worldCamera = w.camera;
-            s.cube = w.cube;
-            gestures.target = w.cube;
-            gestures.viewCamera = w.camera;
+            var objects = new GameObject("Objects").transform;
+            objects.SetParent(w.world, false);
+            var wv = w.world.gameObject.AddComponent<SceneWorldView>();
+            wv.objectsRoot = objects;
+            wv.baseMaterial = SyncWorldBuilder.Mat("SyncObjectBase", Color.white, 0.3f);
+            wv.outlineMaterial = SyncWorldBuilder.OutlineMat();
+            wv.cubeMesh = SyncWorldBuilder.BuiltinMesh("Cube");
+            wv.sphereMesh = SyncWorldBuilder.BuiltinMesh("Sphere");
+            wv.cylinderMesh = SyncWorldBuilder.BuiltinMesh("Cylinder");
+            wv.capsuleMesh = SyncWorldBuilder.BuiltinMesh("Capsule");
+            wv.planeMesh = SyncWorldBuilder.BuiltinMesh("Plane");
+            s.world = wv;
+            var gz = new GameObject("Gizmo");
+            gz.transform.SetParent(w.world, false);
+            var gizmo = gz.AddComponent<TransformGizmo>();
+            gizmo.material = SyncWorldBuilder.GizmoMat();
+            gizmo.cylinderMesh = wv.cylinderMesh;
+            gizmo.cubeMesh = wv.cubeMesh;
+            gizmo.sphereMesh = wv.sphereMesh;
+            gizmo.cam = w.camera;
+            s.gizmo = gizmo;
+            var rig = w.camera.gameObject.AddComponent<OrbitCameraRig>();
+            rig.worldRoot = w.world;
+            rig.cam = w.camera;
+            s.rig = rig;
+            input.rig = rig;
             return s;
+        }
+
+        // on / off pill (Snap, Lock, Uniform); ChipToggle owns the colours
+        static ChipToggle Chip(Transform parent, string name, string label, float w, float h, out Button button)
+        {
+            var bg = Shape(parent, name, ColorRole.Field, ShapeKind.Pill);
+            bg.GetComponent<ThemedShape>().pillHeight = h;
+            bg.GetComponent<ThemedColor>().enabled = false;
+            LE(bg, h, w, 0);
+            button = MakeButton(bg.gameObject, bg);
+            var t = Txt(bg.transform, "Label", label, TextRole.Caption, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            t.GetComponent<ThemedText>().applyColor = false;
+            Stretch(t.rectTransform, 10, 0, 10, 0);
+            var c = bg.gameObject.AddComponent<ChipToggle>();
+            c.background = bg;
+            c.label = t;
+            c.Apply();
+            return c;
+        }
+
+        // small text pill floating on the 3D view; ax 0 = from the left edge, 1 = from the right edge; y from the top
+        static Button ViewPill(Transform frame, string name, string label, float ax, float x, float y, float w)
+        {
+            var bg = Shape(frame, name, ColorRole.Card, ShapeKind.Pill, 0.92f);
+            bg.GetComponent<ThemedShape>().pillHeight = 68f;
+            var r = bg.rectTransform;
+            r.anchorMin = r.anchorMax = new Vector2(ax, 1f);
+            r.pivot = new Vector2(ax, 1f);
+            r.sizeDelta = new Vector2(w, 68f);
+            r.anchoredPosition = new Vector2(x, -y);
+            var t = Txt(bg.transform, "Label", label, TextRole.Small, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            Stretch(t.rectTransform);
+            return MakeButton(bg.gameObject, bg);
+        }
+
+        // flexible pill button with icon + label (bottom bar, Copy / Paste)
+        static Button BarButton(Transform parent, string name, string icon, string label)
+        {
+            var b = Shape(parent, name, ColorRole.Field, ShapeKind.Pill);
+            b.GetComponent<ThemedShape>().pillHeight = 96f;
+            LE(b, 96, -1, 1);
+            var btn = MakeButton(b.gameObject, b);
+            var ic = Icon(b.transform, "Icon", icon, ColorRole.Primary, 48f);
+            Place(ic.rectTransform, 0f, 0.5f, 48f, 48f, 26f, 0f);
+            var t = Txt(b.transform, "Label", label, TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            Stretch(t.rectTransform, 86, 0, 12, 0);
+            return btn;
+        }
+
+        // bottom sheet over the lower part of the Scene tab: grabber, title, close button. Returns the card (content parent).
+        static RectTransform Sheet(Transform parent, string name, string title, float h, out GameObject root, out Button close, out TextMeshProUGUI titleText)
+        {
+            var r = New(name, parent);
+            r.anchorMin = new Vector2(0f, 0f);
+            r.anchorMax = new Vector2(1f, 0f);
+            r.pivot = new Vector2(0.5f, 0f);
+            r.offsetMin = new Vector2(12f, 8f);
+            r.offsetMax = new Vector2(-12f, 8f + h);
+            ShadowInside(r, 0.22f);
+            var card = Shape(r, "Card", ColorRole.Card, ShapeKind.Card);
+            Stretch(card.rectTransform);
+            var grab = Shape(card.transform, "Grabber", ColorRole.Divider, ShapeKind.Pill);
+            grab.GetComponent<ThemedShape>().pillHeight = 12f;
+            grab.raycastTarget = false;
+            Place(grab.rectTransform, 0.5f, 1f, 120f, 12f, 0f, -18f);
+            titleText = Txt(card.transform, "Title", title, TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
+            var tr = titleText.rectTransform;
+            tr.anchorMin = new Vector2(0f, 1f);
+            tr.anchorMax = new Vector2(1f, 1f);
+            tr.pivot = new Vector2(0f, 1f);
+            tr.offsetMin = new Vector2(40f, -104f);
+            tr.offsetMax = new Vector2(-150f, -36f);
+            var hit = Img(card.transform, "Close", null, ColorRole.Card, 0f);
+            Place(hit.rectTransform, 1f, 1f, 110f, 110f, -16f, -20f);
+            var ic = Icon(hit.transform, "Icon", "close", ColorRole.Text, 56f);
+            Place(ic.rectTransform, 0.5f, 0.5f, 56f, 56f);
+            close = MakeButton(hit.gameObject, hit);
+            root = r.gameObject;
+            return card.rectTransform;
+        }
+
+        // Inspector value row: [X] [-] [ 1.25 ] [+]   (X = drag to scrub, long press = reset)
+        static InspectorField FieldRow(Transform list, int group, int axis)
+        {
+            var row = New("Field" + "PRS"[group] + "XYZ"[axis], list);
+            LE(row, 100);
+            HLayout(row.gameObject, 12).childForceExpandWidth = false;
+            var f = row.gameObject.AddComponent<InspectorField>();
+            f.group = group;
+            f.axis = axis;
+
+            var lab = Shape(row, "Axis", ColorRole.Primary, ShapeKind.Field);
+            lab.GetComponent<ThemedColor>().enabled = false;
+            lab.color = axis == 0 ? new Color(0.90f, 0.27f, 0.23f) : axis == 1 ? new Color(0.30f, 0.66f, 0.18f) : new Color(0.22f, 0.48f, 0.96f);
+            LE(lab, 100, 116, 0);
+            f.axisLabel = Txt(lab.transform, "Label", "XYZ"[axis].ToString(), TextRole.Button, ColorRole.OnPrimary, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            f.axisLabel.GetComponent<ThemedText>().applyColor = false;
+            f.axisLabel.color = Color.white;
+            Stretch(f.axisLabel.rectTransform);
+            f.scrub = lab.gameObject.AddComponent<ScrubArea>();
+
+            var minus = Shape(row, "Minus", ColorRole.Field, ShapeKind.Pill);
+            minus.GetComponent<ThemedShape>().pillHeight = 100f;
+            LE(minus, 100, 104, 0);
+            f.minusButton = MakeButton(minus.gameObject, minus);
+            var mt = Txt(minus.transform, "Label", "-", TextRole.Header, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            Stretch(mt.rectTransform);
+
+            f.input = Input(row, "Value", "0", 100f);
+            LE(f.input, 100, -1, 1);
+            f.input.contentType = TMP_InputField.ContentType.DecimalNumber;
+            f.inputLongPress = f.input.gameObject.AddComponent<LongPress>();
+            f.inputLongPress.seconds = 0.6f;
+
+            var plus = Shape(row, "Plus", ColorRole.Field, ShapeKind.Pill);
+            plus.GetComponent<ThemedShape>().pillHeight = 100f;
+            LE(plus, 100, 104, 0);
+            f.plusButton = MakeButton(plus.gameObject, plus);
+            var pt = Txt(plus.transform, "Label", "+", TextRole.Header, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            Stretch(pt.rectTransform);
+            return f;
+        }
+
+        // Hierarchy row template (inactive): colour dot, name, shape / locked
+        static HierarchyRowView HierarchyRow(Transform list)
+        {
+            Image card;
+            Button btn;
+            GameObject container;
+            var rt = Row(list, "ObjRow", 128f, out card, out btn, out container);
+            var v = container.AddComponent<HierarchyRowView>();
+            v.button = btn;
+            v.highlight = Shape(rt, "Selected", ColorRole.PrimarySoft, ShapeKind.Card);
+            v.highlight.raycastTarget = false;
+            Stretch(v.highlight.rectTransform);
+            v.colorDot = Img(rt, "Dot", circle, ColorRole.Primary);
+            v.colorDot.GetComponent<ThemedColor>().enabled = false;
+            v.colorDot.raycastTarget = false;
+            Place(v.colorDot.rectTransform, 0f, 0.5f, 44f, 44f, 40f, 0f);
+            v.nameText = Txt(rt, "Name", "Object", TextRole.Body, ColorRole.Text, TextWeight.SemiBold);
+            Stretch(v.nameText.rectTransform, 112, 60, 40, 14);
+            v.subText = Txt(rt, "Sub", "Cube", TextRole.Caption, ColorRole.SubText);
+            Stretch(v.subText.rectTransform, 112, 14, 40, 64);
+            container.SetActive(false);
+            return v;
         }
 
         static AppScreen BuildSettings(Transform parent)

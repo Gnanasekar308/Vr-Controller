@@ -4,17 +4,18 @@ using UnityEngine;
 namespace MediSimVR.EditorTools
 {
     // The small 3D world used by the phone "Live Scene" view and the PC sync scene (same look on both):
-    // SyncWorld root -> Floor (4 m x 4 m, 1 m grid), SyncCube (local pos 0,0.5,0), Light, Camera.
-    // Same floor size / cube colour / cube start pose as the Quest receiver's SyncWorld.
+    // SyncWorld root -> Floor (4 m x 4 m, 1 m grid), Light, Camera. The controllable objects are added by the caller
+    // (PC: SyncDemoObjects, same ids as the Quest; phone: created at runtime from the receiver's object list).
     public static class SyncWorldBuilder
     {
         const string MaterialsDir = "Assets/MediSimVR/Materials";
+        const string ShadersDir = "Assets/MediSimVR/Shaders";
         public static readonly Vector3 CameraPos = new Vector3(0f, 2.4f, -3.6f);
         public static readonly Vector3 CameraLookAt = new Vector3(0f, 0.5f, 0f);
 
         public class Result
         {
-            public Transform world, cube;
+            public Transform world;
             public Camera camera;
         }
 
@@ -43,15 +44,6 @@ namespace MediSimVR.EditorTools
                 Line(grid, "Z" + i, new Vector3(0f, 0.002f, i), new Vector3(4f, 0.001f, 0.012f), gridMat);
             }
 
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = "SyncCube";
-            cube.transform.SetParent(world, false);
-            cube.transform.localPosition = new Vector3(0f, 0.5f, 0f);
-            cube.transform.localRotation = Quaternion.identity;
-            cube.transform.localScale = Vector3.one;
-            cube.GetComponent<MeshRenderer>().sharedMaterial = Mat("SyncCube", new Color32(0x1A, 0x80, 0xE8, 0xFF), 0.3f);
-            Object.DestroyImmediate(cube.GetComponent<Collider>());
-
             var lightGo = new GameObject("Light");
             lightGo.transform.SetParent(world, false);
             lightGo.transform.localRotation = Quaternion.Euler(50f, -30f, 0f);
@@ -69,10 +61,10 @@ namespace MediSimVR.EditorTools
             cam.backgroundColor = background;
             cam.fieldOfView = 50f;
             cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = 50f;
+            cam.farClipPlane = 200f;
             cam.cullingMask = ~(1 << 5); // everything except UI
 
-            return new Result { world = world, cube = cube.transform, camera = cam };
+            return new Result { world = world, camera = cam };
         }
 
         static void Line(Transform parent, string name, Vector3 pos, Vector3 size, Material m)
@@ -88,20 +80,40 @@ namespace MediSimVR.EditorTools
             Object.DestroyImmediate(go.GetComponent<Collider>());
         }
 
-        static Material Mat(string name, Color c, float smoothness)
+        public static Material Mat(string name, Color c, float smoothness)
+        {
+            return MatWith(name, "Standard", c, m => m.SetFloat("_Glossiness", smoothness));
+        }
+
+        // selection outline (MediSimVR/Outline) and gizmo handles (MediSimVR/Gizmo) for the phone view
+        public static Material OutlineMat() { return MatWith("SyncOutline", "MediSimVR/Outline", new Color(1f, 0.62f, 0.10f, 1f), m => m.SetFloat("_Width", 0.012f)); }
+        public static Material GizmoMat() { return MatWith("SyncGizmo", "MediSimVR/Gizmo", Color.white, null); }
+
+        static Material MatWith(string name, string shaderName, Color c, System.Action<Material> extra)
         {
             if (!AssetDatabase.IsValidFolder(MaterialsDir)) AssetDatabase.CreateFolder("Assets/MediSimVR", "Materials");
             string path = MaterialsDir + "/" + name + ".mat";
+            var shader = Shader.Find(shaderName);
+            if (shader == null) Debug.LogError("[MediSimVR] Shader not found: " + shaderName + " (expected in " + ShadersDir + ")");
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)
             {
-                mat = new Material(Shader.Find("Standard"));
+                mat = new Material(shader);
                 AssetDatabase.CreateAsset(mat, path);
             }
+            else if (shader != null && mat.shader != shader) mat.shader = shader;
             mat.color = c;
-            mat.SetFloat("_Glossiness", smoothness);
+            if (extra != null) extra(mat);
             EditorUtility.SetDirty(mat);
             return mat;
+        }
+
+        // Unity's primitive meshes (kept as references in the scene, so they are in the build)
+        public static Mesh BuiltinMesh(string name)
+        {
+            var m = Resources.GetBuiltinResource<Mesh>(name + ".fbx");
+            if (m == null) Debug.LogError("[MediSimVR] Built-in mesh not found: " + name);
+            return m;
         }
     }
 }
