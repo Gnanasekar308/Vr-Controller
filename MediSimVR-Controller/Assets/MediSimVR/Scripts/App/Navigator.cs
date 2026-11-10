@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace MediSimVR
 {
-    public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp }
+    public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp, Scene } // new ids go at the end
 
     [Serializable]
     public class NavItem

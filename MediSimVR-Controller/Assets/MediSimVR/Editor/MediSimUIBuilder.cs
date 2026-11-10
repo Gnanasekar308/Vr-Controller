@@ -26,9 +26,15 @@ namespace MediSimVR.EditorTools
         [MenuItem("MediSimVR/Build UI Scene")]
         public static void Build()
         {
-            if (File.Exists(ScenePath) && !EditorUtility.DisplayDialog("MediSimVR",
+            // batchmode (-executeMethod MediSimVR.EditorTools.MediSimUIBuilder.Build -quit): no dialogs
+            bool batch = Application.isBatchMode;
+            if (!batch && File.Exists(ScenePath) && !EditorUtility.DisplayDialog("MediSimVR",
                 "Main.unity already exists. Rebuild it? (changes made in that scene will be lost)", "Rebuild", "Cancel")) return;
-            if (!LoadSprites()) return;
+            if (!LoadSprites())
+            {
+                if (batch) EditorApplication.Exit(1);
+                return;
+            }
             EnsureFonts();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -38,6 +44,7 @@ namespace MediSimVR.EditorTools
             var cam = camGo.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = Color.white;
+            cam.cullingMask = 0; // the UI is a screen-space overlay; the 3D "Live Scene" has its own camera
 
             var es = new GameObject("EventSystem");
             es.AddComponent<EventSystem>();
@@ -74,6 +81,7 @@ namespace MediSimVR.EditorTools
             nav.screens.Add(BuildDevices(screensRoot));
             nav.screens.Add(BuildSend(screensRoot));
             nav.screens.Add(BuildControl(screensRoot));
+            nav.screens.Add(BuildScene(screensRoot));
             nav.screens.Add(BuildSettings(screensRoot));
             nav.screens.Add(BuildNotifications(screensRoot));
             nav.screens.Add(BuildEditApp(screensRoot));
@@ -92,8 +100,8 @@ namespace MediSimVR.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
-            Debug.Log("[MediSimVR] UI scene built: " + ScenePath + " (added to Build Settings as scene 0)");
-            EditorUtility.DisplayDialog("MediSimVR", "UI scene ready:\n" + ScenePath + "\n\nPress Play to try it.", "OK");
+            Debug.Log("[MediSimVR] UI scene built: " + ScenePath + " (added to Build Settings as scene 0), screens " + nav.screens.Count + ", tabs " + nav.navItems.Count);
+            if (!batch) EditorUtility.DisplayDialog("MediSimVR", "UI scene ready:\n" + ScenePath + "\n\nPress Play to try it.", "OK");
         }
 
         // ===================================================================== assets
@@ -113,7 +121,9 @@ namespace MediSimVR.EditorTools
             logoWhite = S("Branding/logo_white.png");
             if (round == null || circle == null || IconS("home") == null || logoWhite == null)
             {
-                EditorUtility.DisplayDialog("MediSimVR", "Art sprites not found under Assets/MediSimVR/Art.\nImport the Step 5 and Step 7 zips first.", "OK");
+                Debug.LogError("[MediSimVR] Art sprites not found under Assets/MediSimVR/Art");
+                if (!Application.isBatchMode)
+                    EditorUtility.DisplayDialog("MediSimVR", "Art sprites not found under Assets/MediSimVR/Art.\nImport the Step 5 and Step 7 zips first.", "OK");
                 return false;
             }
             return true;
@@ -1116,6 +1126,72 @@ namespace MediSimVR.EditorTools
             return b;
         }
 
+        // "Live Scene": status chip, 3D view (SyncWorld far from the UI, rendered to a RenderTexture), readout, modes, Save/Load/Reset
+        static AppScreen BuildScene(Transform parent)
+        {
+            var s = MakeScreen<SceneScreen>(parent, "Scene", ScreenId.Scene);
+            Wave(s.transform);
+            TextMeshProUGUI title, subT;
+            Button backB;
+            var hdr = Header(s.transform, "Live Scene", "Move the cube here, it moves on PC and Quest", false, out title, out subT, out backB);
+            s.linkButton = CircleButton(hdr, "Link", "link", 1f, -48f, 118f);
+
+            var chip = Shape(s.transform, "StatusChip", ColorRole.Card, ShapeKind.Pill);
+            chip.GetComponent<ThemedShape>().pillHeight = 96f;
+            chip.raycastTarget = false;
+            TopBand(chip.rectTransform, HeadH + 4f, 96f);
+            ShadowFor(chip.rectTransform, 0.08f);
+            s.statusDot = Img(chip.transform, "Dot", circle, ColorRole.Warning);
+            s.statusDot.GetComponent<ThemedColor>().enabled = false; // SceneScreen sets the colour (searching / connected)
+            s.statusDot.raycastTarget = false;
+            Place(s.statusDot.rectTransform, 0f, 0.5f, 28f, 28f, 40f, 0f);
+            s.statusText = Txt(chip.transform, "Status", "Searching PC / Quest on this Wi-Fi...", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            Stretch(s.statusText.rectTransform, 88, 0, 32, 0);
+
+            var frame = Shape(s.transform, "ViewFrame", ColorRole.Card, ShapeKind.Card);
+            TopBand(frame.rectTransform, HeadH + 124f, 960f);
+            ShadowFor(frame.rectTransform);
+            frame.gameObject.AddComponent<Mask>().showMaskGraphic = true; // rounded corners for the 3D view
+            var viewRt = New("View", frame.transform);
+            Stretch(viewRt);
+            var raw = viewRt.gameObject.AddComponent<RawImage>();
+            raw.color = Color.white;
+            s.view = raw;
+            var gestures = viewRt.gameObject.AddComponent<CubeGestures>();
+            gestures.view = viewRt;
+            s.gestures = gestures;
+            var hintBg = Shape(frame.transform, "HintPill", ColorRole.Card, ShapeKind.Pill, 0.85f);
+            hintBg.GetComponent<ThemedShape>().pillHeight = 64f;
+            hintBg.raycastTarget = false;
+            BottomBand(hintBg.rectTransform, 18f, 64f, 40f);
+            s.hintText = Txt(hintBg.transform, "Hint", "", TextRole.Small, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
+            Stretch(s.hintText.rectTransform, 20, 0, 20, 0);
+
+            s.readoutText = Txt(s.transform, "Readout", "", TextRole.Caption, ColorRole.SubText);
+            TopBand(s.readoutText.rectTransform, HeadH + 1100f, 150f, 64f);
+
+            var modeRow = New("ModeRow", s.transform);
+            TopBand(modeRow, HeadH + 1270f, 120f);
+            VLayout(modeRow.gameObject, 0, 0);
+            s.modeSeg = Seg(modeRow, "Modes", new[] { "Move", "Rotate", "Scale" }, 120f, true, new[] { "swap_horiz", "refresh", "open_in_full" });
+
+            var bar = New("Buttons", s.transform);
+            TopBand(bar, HeadH + 1420f, 96f);
+            HLayout(bar.gameObject, 24);
+            s.saveButton = SmallAction(bar, "Save", "check", "Save", ColorRole.Primary, 300f);
+            s.loadButton = SmallAction(bar, "Load", "folder_open", "Load", ColorRole.Primary, 300f);
+            s.resetButton = SmallAction(bar, "Reset", "restart_alt", "Reset", ColorRole.Text, 300f);
+
+            // the 3D world, far away from everything else; its camera is enabled only while the tab is visible
+            var w = SyncWorldBuilder.Build(new Vector3(1000f, 0f, 0f), "SceneCamera", new Color(0.90f, 0.93f, 0.97f));
+            w.camera.enabled = false;
+            s.worldCamera = w.camera;
+            s.cube = w.cube;
+            gestures.target = w.cube;
+            gestures.viewCamera = w.camera;
+            return s;
+        }
+
         static AppScreen BuildSettings(Transform parent)
         {
             var s = MakeScreen<SettingsScreen>(parent, "Settings", ScreenId.Settings);
@@ -1372,10 +1448,10 @@ namespace MediSimVR.EditorTools
             var items = New("Items", bar.transform);
             Stretch(items, 12, 10, 12, 10);
             HLayout(items.gameObject, 6);
-            string[] labels = { "Home", "Devices", "Send", "Control", "Settings" };
-            string[] icons = { "home", "vr_headset", "send", "tune", "settings" };
-            ScreenId[] ids = { ScreenId.Home, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Settings };
-            for (int i = 0; i < 5; i++)
+            string[] labels = { "Home", "Devices", "Send", "Control", "Scene", "Settings" };
+            string[] icons = { "home", "vr_headset", "send", "tune", "view_in_ar", "settings" };
+            ScreenId[] ids = { ScreenId.Home, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Scene, ScreenId.Settings };
+            for (int i = 0; i < labels.Length; i++)
             {
                 var hit = Img(items, labels[i], null, ColorRole.Card, 0f);
                 var b = MakeButton(hit.gameObject, hit);

@@ -7,6 +7,10 @@
 - Build: `MediSimVR > Build Phone APK` or batchmode
   `"C:\Program Files\Unity\Hub\Editor\2021.3.45f2\Editor\Unity.exe" -batchmode -projectPath "E:\MediSimVR-Controller\MediSimVR-Controller" -executeMethod MediSimVR.EditorTools.PhoneBuild.Build -logFile <log>`
   (the Editor must be closed for batchmode). Output: `Builds/MediSimVR-Controller.apk`.
+- ONE phone app only: package `com.medisim.vr` (set by `PhoneBuild` and in ProjectSettings). Never change the package id.
+  Update with `adb -s ZA223HXPHV install -r` (keeps the app's data); never uninstall it to update. The old app
+  `com.MediSim.MediSimVRController` was removed on 2026-11-10 at the user's request. Build on this PC so the
+  debug signing key stays the same (another key = Android refuses the update).
 - adb: `C:\Program Files\Unity\Hub\Editor\2021.3.45f2\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe`. Phone `ZA223HXPHV`, Quest `1WMHH814R70372`.
 - Quest receiver is a separate project: `E:\MediSimVR-Receiver`.
 
