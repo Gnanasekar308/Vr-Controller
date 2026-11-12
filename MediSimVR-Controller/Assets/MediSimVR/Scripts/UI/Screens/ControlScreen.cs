@@ -8,8 +8,8 @@ namespace MediSimVR
 {
     // Control tab = last step of the Control Mode flow (Session > Devices > Send > Control):
     //   target card (Playing on / My Quest + Change), player card (this phone plays the same video / audio as the Quests,
-    //   mirroring their Play / Pause / Stop; demo samples without media show the thumbnail), "View in Scene" (opening the
-    //   Scene pauses the video until Play / Resume), playback controls (Play, Pause, Resume, Stop, Mute), Audio (sound and
+    //   mirroring their Play / Pause / Stop; demo samples without media show the thumbnail), playback controls (Play,
+    //   Pause, Resume, Stop, Mute; the Scene tab pauses the video until Play / Resume), Audio (sound and
     //   mic of this phone = sender and of the Quests = receiver), Live voice, Lesson notes and Important instructions
     //   (the Quests read them aloud), and where the JSON session record is saved / sent. Every action goes to SessionLog.
     public class ControlScreen : AppScreen
@@ -27,7 +27,7 @@ namespace MediSimVR
         public TMP_Text fileName, fileInfo, previewStatus, previewBadge, elapsedText, durationText;
         public RectTransform progressFill;
         public GameObject progressRow;
-        public Button sceneButton, fileButton;
+        public Button fileButton;
 
         public PlaybackControlsView controls;
 
@@ -59,7 +59,6 @@ namespace MediSimVR
             controls.Acted += OnActed;
             changeTargetButton.onClick.AddListener(() => nav.Push(ControlFlow.IsPlayer ? ScreenId.SessionPlayerPick : ScreenId.Devices));
             fileButton.onClick.AddListener(() => nav.Push(ScreenId.Send));
-            sceneButton.onClick.AddListener(() => nav.Push(ScreenId.Scene));   // the Scene pauses the video (SceneScreen.OnShow)
 
             phoneSoundSwitch.Changed += on => { SessionLog.PhoneSound = on; phone.SetMute(!on); if (!on) PhoneSpeech.Stop(); };
             // the mics are part of live voice: without the session backend they do nothing, so say so and keep the switch

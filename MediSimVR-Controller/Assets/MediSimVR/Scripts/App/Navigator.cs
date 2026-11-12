@@ -96,9 +96,7 @@ namespace MediSimVR
         void Highlight()
         {
             // Notifications and Settings (+ Edit App) open from the Home header: Home stays highlighted
-            // the Scene opens from the Control tab: Control stays highlighted
             ScreenId tab = current == ScreenId.Notifications || current == ScreenId.Settings || current == ScreenId.EditApp ? ScreenId.Home
-                : current == ScreenId.Scene ? ScreenId.Control
                 : current >= ScreenId.Session ? ScreenId.Session : current;
             foreach (var n in navItems)
             {

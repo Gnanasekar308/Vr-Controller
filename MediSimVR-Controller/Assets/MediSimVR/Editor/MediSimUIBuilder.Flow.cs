@@ -34,7 +34,7 @@ namespace MediSimVR.EditorTools
             Place((RectTransform)s.changeTargetButton.transform, 1f, 0.5f, 196f, 72f, -16f, 0f);
 
             // ---- player: what plays on the Quests, also on this phone (or its thumbnail)
-            var pc = Panel(list, "Player", 900f);
+            var pc = Panel(list, "Player", 764f);
             var area = Shape(pc, "Screen", ColorRole.OnPrimary, ShapeKind.Field);
             area.GetComponent<ThemedColor>().enabled = false;
             area.color = Color.white;
@@ -116,9 +116,7 @@ namespace MediSimVR.EditorTools
             fill.rectTransform.offsetMax = Vector2.zero;
             s.progressFill = fill.rectTransform;
 
-            // Scene link: opens the Scene (pauses the video until Play / Resume)
-            s.sceneButton = Btn(pc, "ViewInScene", BtnKind.Secondary, "view_in_ar", "View in Scene");
-            TopLeft((RectTransform)s.sceneButton.transform, 24f, 756f, 24f, BtnH);
+
 
             // ---- playback: status, Play / Pause / Resume / Stop, Mute
             s.controls = ControlsBig(list);

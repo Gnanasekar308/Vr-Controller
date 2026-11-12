@@ -1,7 +1,7 @@
 # MediSimVR phone app: 5-minute demo
 
 Demo mode is ON (Home > gear icon (Settings) > Demo mode). Everything runs on sample data: no Quest, PC or Wi-Fi needed.
-Bottom bar: **Home, Session, Devices, Send, Control** (the Scene opens from Control).
+Bottom bar: **Home, Session, Devices, Send, Control, Scene**.
 Sample Quests: Quest-A1B2 (in use: plays Anatomy_Heart_360.mp4), Quest-C3D4, Quest-E5F6 (offline), Quest-G7H8.
 Sample Quests, files, instructions, chat replies, demo texts and timings live in one file:
 `Assets/MediSimVR/Scripts/Demo/DemoConfig.cs`.
@@ -31,10 +31,10 @@ Back always works the same (arrow at the top left or the Android back button).
 
 ## 1:50 Step 3: Control (2 min)
 10. The **Control** tab opens ("Step 3 of 3"): the player card shows what plays (**ON THIS PHONE** for a file picked
-    on the phone: the video plays here too; **ON THE QUEST** for the demo samples), progress bar, **View in Scene**.
+    on the phone: the video plays here too; **ON THE QUEST** for the demo samples), progress bar.
 11. **Pause** / **Resume** / **Stop** / **Mute** act on the Quests (and on this phone's preview).
-12. **View in Scene**: the video **pauses**; the Live Scene opens (DEMO SCENE badge). Tap the cube, drag an arrow, the
-    expand button = full view. Back arrow: Control again, still **paused**; **Resume** continues.
+12. Tap the **Scene** tab (bottom bar): the video **pauses**; the Live Scene opens (DEMO SCENE badge). Tap the cube, drag an arrow, the
+    expand button = full view. Android back (or the Control tab): Control again, still **paused**; **Resume** continues.
 13. Scroll down:
     - **Audio**: This phone (sender) Sound / Mic, Quests (receivers) Sound / Mic.
     - **Live voice** on / off and who is speaking.

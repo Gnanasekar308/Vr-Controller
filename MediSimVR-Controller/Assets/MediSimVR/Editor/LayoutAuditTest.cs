@@ -20,8 +20,8 @@ namespace MediSimVR.EditorTools
     //   - clipped text: a text cut with "..."
     //   - overlap: two texts, or two buttons, drawn on top of each other
     //   - off screen: a button outside the screen area (inside a scroll list: outside its width)
-    // plus the design system rules: Home Control Mode = Session HOST card, Receiver Mode = PLAYER card, 5 bottom tabs
-    // without Settings / Scene, every primary button BtnH high. Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
+    // plus the design system rules: Home Control Mode = Session HOST card, Receiver Mode = PLAYER card, 6 bottom tabs
+    // (Settings in the Home header), every primary button BtnH high. Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
     // (git-ignored) for a visual check. The canvas is switched to world space for this, nothing on a device changes.
     [InitializeOnLoad]
     public static class LayoutAuditTest
@@ -206,8 +206,7 @@ namespace MediSimVR.EditorTools
                 yield return Visit(h, ++n, "control_middle", () => ScrollTo(0.5f));
                 yield return Visit(h, ++n, "control_bottom", () => ScrollTo(0f));
                 yield return Visit(h, ++n, "session_host", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.SessionHost); });
-                nav.Tab(ScreenId.Control);
-                nav.Push(ScreenId.Scene);
+                nav.Tab(ScreenId.Scene);   // the Scene tab
                 yield return Wait(DemoConfig.SceneLoadSeconds + 0.6f);   // the demo scene arrives
                 var scene = nav.Get<SceneScreen>();
                 if (scene.Doc != null && scene.Doc.Get("cube") != null) scene.Doc.Select("cube");
@@ -268,7 +267,7 @@ namespace MediSimVR.EditorTools
             foreach (var i in nav.navItems) if (i.target == ScreenId.Settings) settingsTab = true;
             string tabs = "";
             foreach (var i in nav.navItems) tabs += i.target + " ";
-            Check(tabs == "Home Session Devices Send Control " && !settingsTab, "bottom navigation: Home, Session, Devices, Send, Control (" + tabs.Trim() + ")");
+            Check(tabs == "Home Session Devices Send Control Scene " && !settingsTab, "bottom navigation: Home, Session, Devices, Send, Control, Scene (" + tabs.Trim() + ")");
             Check(home.settingsButton != null && home.settingsButton.transform.parent.parent.name == "Header", "Settings button in the Home header");
             var bell = (RectTransform)home.bellButton.transform.parent;
             var set = (RectTransform)home.settingsButton.transform.parent;

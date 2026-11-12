@@ -850,8 +850,7 @@ namespace MediSimVR.EditorTools
             TextMeshProUGUI title, subT;
             Button backB;
             // header: title + Link (manual IPs); the connection status chip sits in the subtitle line
-            var hdr = Header(s.transform, "Live Scene", "", true, out title, out subT, out backB);
-            s.backButton = backB;   // back to the Control tab (the Scene opens from there)
+            var hdr = Header(s.transform, "Live Scene", "", false, out title, out subT, out backB);
             s.linkButton = CircleButton(hdr, "Link", "link", 1f, -48f, 118f);
             s.chrome.Add(hdr.gameObject);
 
@@ -1462,11 +1461,10 @@ namespace MediSimVR.EditorTools
             var items = New("Items", bar.transform);
             Stretch(items, 12, 10, 12, 10);
             HLayout(items.gameObject, 8);
-            // five tabs in flow order (Home > Session > Devices > Send > Control); Settings opens from the Home header, the
-            // Scene from the Control tab
-            string[] labels = { "Home", "Session", "Devices", "Send", "Control" };
-            string[] icons = { "home", "cast_connected", "vr_headset", "send", "tune" };
-            ScreenId[] ids = { ScreenId.Home, ScreenId.Session, ScreenId.Devices, ScreenId.Send, ScreenId.Control };
+            // six tabs: the flow (Home > Session > Devices > Send > Control) + Scene; Settings opens from the Home header
+            string[] labels = { "Home", "Session", "Devices", "Send", "Control", "Scene" };
+            string[] icons = { "home", "cast_connected", "vr_headset", "send", "tune", "view_in_ar" };
+            ScreenId[] ids = { ScreenId.Home, ScreenId.Session, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Scene };
             for (int i = 0; i < labels.Length; i++)
             {
                 var hit = Img(items, labels[i], null, ColorRole.Card, 0f);

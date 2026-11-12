@@ -129,7 +129,7 @@ namespace MediSimVR
             nav.Tab(ScreenId.Home); yield return Shot("home");
             var tabs = "";
             foreach (var item in nav.navItems) tabs += item.target + " ";
-            Check(tabs == "Home Session Devices Send Control ", "bottom bar: Home, Session, Devices, Send, Control (" + tabs.Trim() + ")");
+            Check(tabs == "Home Session Devices Send Control Scene ", "bottom bar: Home, Session, Devices, Send, Control, Scene (" + tabs.Trim() + ")");
 
             // ----- Control Mode > Session > HOST > Devices (step 1) -----
             Click(home.controlModeButton);
@@ -172,10 +172,10 @@ namespace MediSimVR
             Click(control.controls.resumeButton);
             Check(AnyPlaying(svc), "Resume plays again");
 
-            // ----- View in Scene: pauses the video; back returns to Control, still paused until Play -----
+            // ----- Scene tab: pauses the video; Android back returns to Control, still paused until Play -----
             ScrollTo(control, 1f);
-            Click(control.sceneButton);
-            Expect(ScreenId.Scene, "View in Scene opens the Scene");
+            foreach (var item in nav.navItems) if (item.target == ScreenId.Scene) Click(item.button);   // the Scene tab
+            Expect(ScreenId.Scene, "the Scene tab opens the Scene");
             Check(!AnyPlaying(svc), "opening the Scene pauses the video");
             yield return new WaitForSecondsRealtime(DemoConfig.SceneLoadSeconds + settle);
             if (scene.Doc != null && scene.Doc.Get("cube") != null)
@@ -199,7 +199,7 @@ namespace MediSimVR
             yield return Shot("scene_full_view");
             nav.Back();
             Check(!scene.FullView && nav.Current == ScreenId.Scene, "back leaves the full view and stays on Scene");
-            Click(scene.backButton);
+            nav.Back();   // Android back
             Expect(ScreenId.Control, "back from the Scene returns to Control");
             yield return new WaitForSecondsRealtime(0.6f);
             Check(!AnyPlaying(svc), "the video stays paused until Play / Resume");
