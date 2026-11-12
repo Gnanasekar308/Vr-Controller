@@ -14,7 +14,7 @@ namespace MediSimVR.EditorTools
     // Menu: MediSimVR > Build UI Scene
     // Creates Assets/MediSimVR/Scenes/Main.unity with the full phone UI (Canvas + TextMeshPro).
     // Everything is normal GameObjects afterwards: move / resize / recolour in the Inspector as you like.
-    public static class MediSimUIBuilder
+    public static partial class MediSimUIBuilder
     {
         const string Root = "Assets/MediSimVR/";
         const string ScenePath = Root + "Scenes/Main.unity";
@@ -75,6 +75,7 @@ namespace MediSimVR.EditorTools
             var root = app.AddComponent<AppRoot>();
             var nav = app.AddComponent<Navigator>();
             app.AddComponent<FilePicker>();
+            app.AddComponent<DemoTour>().nav = nav;   // demo screenshots (-demotour), see DemoTour
             root.navigator = nav;
 
             nav.screens.Add(BuildHome(screensRoot));
@@ -82,6 +83,11 @@ namespace MediSimVR.EditorTools
             nav.screens.Add(BuildSend(screensRoot));
             nav.screens.Add(BuildControl(screensRoot));
             nav.screens.Add(BuildScene(screensRoot));
+            nav.screens.Add(BuildSessionStart(screensRoot));
+            nav.screens.Add(BuildSessionHost(screensRoot));
+            nav.screens.Add(BuildSessionPlayerPick(screensRoot));
+            nav.screens.Add(BuildSessionPlayer(screensRoot));
+            nav.screens.Add(BuildSessionSummary(screensRoot));
             nav.screens.Add(BuildSettings(screensRoot));
             nav.screens.Add(BuildNotifications(screensRoot));
             nav.screens.Add(BuildEditApp(screensRoot));
@@ -695,6 +701,12 @@ namespace MediSimVR.EditorTools
 
             s.controlModeButton = ModeCard(s.transform, "ControlMode", 740f, true, "sports_esports", "Control Mode", "Control Quest device(s)");
             s.receiverModeButton = ModeCard(s.transform, "ReceiverMode", 1010f, false, "headphones", "Receiver Mode", "Run as Receiver (for Quest)");
+            GameObject demoBadge;
+            Image modeChip;
+            s.modeText = ModeChip(s.transform, 1270f, out demoBadge, out modeChip);
+            s.demoBadge = demoBadge;
+            modeChip.raycastTarget = true;
+            s.modeButton = MakeButton(modeChip.gameObject, modeChip);
             return s;
         }
 
@@ -1261,6 +1273,14 @@ namespace MediSimVR.EditorTools
             w.camera.enabled = false;
             s.worldCamera = w.camera;
             var objects = new GameObject("Objects").transform;
+            // the colliders SceneWorldView adds at runtime must be in the scene once, or the IL2CPP build strips them
+            // ("AddComponent asking for SphereCollider which is not a Unity engine type" on the phone)
+            var keep = new GameObject("KeepColliderTypes");
+            keep.transform.SetParent(w.world, false);
+            keep.AddComponent<BoxCollider>();
+            keep.AddComponent<SphereCollider>();
+            keep.AddComponent<CapsuleCollider>();
+            keep.SetActive(false);
             objects.SetParent(w.world, false);
             var wv = w.world.gameObject.AddComponent<SceneWorldView>();
             wv.objectsRoot = objects;
@@ -1444,6 +1464,8 @@ namespace MediSimVR.EditorTools
 
             var list = ScrollList(s.transform, "List", HeadH + 10f, 20f);
             TextMeshProUGUI sub;
+            s.demoRow = SettingRow(list, "smart_display", "Demo mode", "ON: sample Quests and sessions, no network", out sub);
+            s.demoSub = sub;
             s.customizationRow = SettingRow(list, "palette", "App Customization", "Color, Text, Buttons, Layout", out sub);
             s.networkRow = SettingRow(list, "wifi", "Network", "Discovery (UDP 8766)", out sub);
             s.connectionRow = SettingRow(list, "link", "Connection", "Manual IP Connect", out sub);
@@ -1690,9 +1712,9 @@ namespace MediSimVR.EditorTools
             var items = New("Items", bar.transform);
             Stretch(items, 12, 10, 12, 10);
             HLayout(items.gameObject, 6);
-            string[] labels = { "Home", "Devices", "Send", "Control", "Scene", "Settings" };
-            string[] icons = { "home", "vr_headset", "send", "tune", "view_in_ar", "settings" };
-            ScreenId[] ids = { ScreenId.Home, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Scene, ScreenId.Settings };
+            string[] labels = { "Home", "Devices", "Send", "Control", "Session", "Scene", "Settings" };
+            string[] icons = { "home", "vr_headset", "send", "tune", "cast_connected", "view_in_ar", "settings" };
+            ScreenId[] ids = { ScreenId.Home, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Session, ScreenId.Scene, ScreenId.Settings };
             for (int i = 0; i < labels.Length; i++)
             {
                 var hit = Img(items, labels[i], null, ColorRole.Card, 0f);

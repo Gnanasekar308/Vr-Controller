@@ -49,31 +49,23 @@ namespace MediSimVR
             }
         }
 
+        // Quests, files and texts come from DemoConfig (demo mode)
         public MockControllerService()
         {
             notesEnabled = PlayerPrefs.GetInt("msvr_notes", 1) == 1;
-            Dev("q1", "Quest-01", "192.168.1.25", true, 86);
-            Dev("q2", "Quest-02", "192.168.1.26", true, 64);
-            Dev("q3", "Quest-03", "192.168.1.27", false, -1);
-            Dev("q4", "Quest-04", "192.168.1.28", true, 92);
-            devices[0].Selected = true;
-            devices[1].Selected = true;
-            devices[0].State = DeviceState.Playing;   // "In Use" in the mock
-            devices[0].FileId = "f1";
-
-            Add("f1", "Nature_01.mp4", MediaKind.Video, 245L << 20, 330, "#7FC8F8", "#2E7D32", "");
-            Add("f2", "Ocean_03.mp4", MediaKind.Video, 312L << 20, 380, "#81D4FA", "#01579B", "");
-            Add("f3", "Lecture_Intro.mp3", MediaKind.Audio, 6L << 20, 200, "#FFB74D", "#6A1B9A", "");
-            Add("f4", "Safety_Instructions.txt", MediaKind.Text, 0, -1, "#E3F2FD", "#90CAF9",
-                "1. Clear the play area.\n2. Adjust the head strap.\n3. Follow the trainer's instructions.");
-            ControlFileId = "f1";
-            Note("System", "Mock mode: no real Quest connected yet", NoteLevel.Info);
+            foreach (var q in DemoConfig.Quests)
+                devices.Add(new QuestDevice
+                {
+                    Id = q.Id, Name = q.Name, Ip = q.Ip, Online = q.Online, Connected = q.Online, Battery = q.Battery,
+                    State = q.State, FileId = q.FileId ?? "", Muted = q.Muted, Selected = q.Online
+                });
+            foreach (var f in DemoConfig.Files) Add(f.Id, f.Name, f.Kind, f.Size, f.Seconds, f.Top, f.Bottom, f.Text ?? "");
+            ControlFileId = DemoConfig.Files.Length > 0 ? DemoConfig.Files[0].Id : "";
+            Note("System", "Demo mode: realistic sample data, no Quest or network needed", NoteLevel.Info);
         }
 
-        private void Dev(string id, string name, string ip, bool online, int bat)
-        {
-            devices.Add(new QuestDevice { Id = id, Name = name, Ip = ip, Online = online, Battery = bat });
-        }
+        // demo session changes devices (battery, leave / join): tell the screens
+        public void NotifyChanged() { Fire(); }
 
         private void Add(string id, string name, MediaKind k, long size, int sec, string top, string bottom, string text)
         {

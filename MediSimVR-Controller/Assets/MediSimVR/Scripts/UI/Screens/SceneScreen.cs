@@ -47,7 +47,7 @@ namespace MediSimVR
 
         public const string IpsKey = "msvr_scene_ips";
 
-        private SceneSyncClient client;
+        private ISceneLink client;   // SceneSyncClient (network) or DemoSceneLink (demo mode)
         private SceneDocument doc;
         private SceneEditController edit;
         private RenderTexture rt;
@@ -56,8 +56,10 @@ namespace MediSimVR
         private bool liveSync = true, uniformScale;
         private InspectorField editingField;
         private float nextStatus;
+        private string showOnly = "";
 
-        public SceneSyncClient Client { get { return client; } }
+        public SceneSyncClient Client { get { return client as SceneSyncClient; } }   // null in demo mode
+        public DemoSceneLink DemoLink { get { return client as DemoSceneLink; } }    // null with the real network
         public SceneDocument Doc { get { return doc; } }
         public SceneEditController Edit { get { return edit; } }
         public bool LiveSync { get { return liveSync; } }
@@ -67,7 +69,7 @@ namespace MediSimVR
             base.Init(n);
             RemoveOldSaveFile();
             doc = new SceneDocument();
-            client = new SceneSyncClient();
+            client = AppRoot.Demo ? (ISceneLink)new DemoSceneLink() : new SceneSyncClient();
             client.SetManualIps(PlayerPrefs.GetString(IpsKey, ""));
             edit = new SceneEditController(doc, world, gizmo, rig, worldCamera);
             input.Controller = edit;
@@ -140,6 +142,7 @@ namespace MediSimVR
         {
             base.OnDisable();
             if (worldCamera != null) worldCamera.enabled = false; // battery: no 3D rendering on other tabs
+            if (showOnly.Length > 0 && client != null) ShowFor(""); // "Open in Scene" for one Quest ends when the tab is left
         }
 
         private void OnDestroy()
@@ -202,6 +205,21 @@ namespace MediSimVR
             if (liveSync || final) client.SetObjectState(o.id, o.pose.pos, o.pose.rot, o.pose.scale, o.locked);
             if (o == doc.Selected) ShowInspectorValues();
             if (final && editingField != null && !doc.Editing) editingField = null;
+            if (final && AppRoot.Session != null && AppRoot.Session.Active) // the session timeline shows object moves
+                AppRoot.Session.Log(SessionEventKind.Object, "Host", "moved " + o.name + " to " +
+                    o.pose.pos.ToString("F1") + (showOnly.Length > 0 ? " (" + showOnly + ")" : ""));
+        }
+
+        // Session "Open in Scene" for one Quest ("" = all). SceneSync has ONE shared scene: every receiver (PC, each Quest)
+        // holds the same objects with the same ids, and an edit goes to all of them. So there is no per-Quest scene to load
+        // or clear: this only changes which Quest the status line names (demo) and tags the timeline entries; the loaded
+        // scene and its undo history stay when the filter is cleared.
+        public void ShowFor(string questName)
+        {
+            showOnly = questName ?? "";
+            var demo = DemoLink;
+            if (demo != null) demo.ShowOnly(showOnly);
+            RefreshStatus();
         }
 
         private void OnLock(SceneObjectState o)
@@ -439,7 +457,7 @@ namespace MediSimVR
         private void RefreshStatus()
         {
             if (statusText == null || client == null) return;
-            var list = client.Targets;
+            var list = client.TargetNames;
             if (list.Count == 0)
             {
                 statusText.text = client.Error != null ? "Network error: " + client.Error : "Searching PC / Quest on this Wi-Fi...";
@@ -447,11 +465,11 @@ namespace MediSimVR
                 return;
             }
             sb.Length = 0;
-            sb.Append("Connected: ");
+            sb.Append(AppRoot.Demo ? "Demo: " : "Connected: ");
             for (int i = 0; i < list.Count; i++)
             {
                 if (i > 0) sb.Append(", ");
-                sb.Append(list[i].Name);
+                sb.Append(list[i]);
             }
             if (client.WaitingForScene) sb.Append("  •  loading scene...");
             statusText.text = sb.ToString();
@@ -460,6 +478,7 @@ namespace MediSimVR
 
         private void AskIps()
         {
+            if (AppRoot.Demo) { nav.Say("Demo mode: no network. Turn demo mode off in Settings to connect."); return; }
             string current = PlayerPrefs.GetString(IpsKey, "");
             nav.popup.Show("Receiver IPs",
                 "Type the IP of each PC / Quest, separated by commas. Leave empty to use Wi-Fi discovery only.",

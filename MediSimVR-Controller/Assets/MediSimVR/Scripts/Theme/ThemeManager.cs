@@ -39,6 +39,14 @@ namespace MediSimVR
             Notify();
         }
 
+        // apply without saving (demo tour: the saved theme stays as it is even if the app is closed during the tour;
+        // Load() brings the saved theme back)
+        public static void Preview(ThemeData t)
+        {
+            current = t;
+            Notify();
+        }
+
         public static void ResetToDefault() { Set(ThemeData.FromPreset("Default")); }
 
         // one broken listener must not stop the others (or the app start)

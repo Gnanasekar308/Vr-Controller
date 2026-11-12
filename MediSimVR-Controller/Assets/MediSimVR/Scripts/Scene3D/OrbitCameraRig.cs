@@ -82,7 +82,9 @@ namespace MediSimVR
         // centre + radius relative to the SyncWorld root
         public void Focus(Vector3 center, float radius)
         {
+            // the narrower of the vertical and horizontal field of view (a portrait view is narrow sideways)
             float half = cam != null ? cam.fieldOfView * 0.5f * Mathf.Deg2Rad : 0.44f;
+            if (cam != null && cam.aspect > 0f && cam.aspect < 1f) half = Mathf.Atan(Mathf.Tan(half) * cam.aspect);
             float d = Mathf.Clamp(radius / Mathf.Sin(half) * 1.15f, MinDistance * 5f, MaxDistance);
             AnimateTo(center, yaw, pitch, d);
         }

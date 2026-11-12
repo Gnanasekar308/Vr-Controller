@@ -104,6 +104,13 @@ namespace MediSimVR
             return (s / 60).ToString("00") + ":" + (s % 60).ToString("00");
         }
 
+        // 00:12:34
+        public static string Clock(TimeSpan t)
+        {
+            int s = Mathf.Max(0, (int)t.TotalSeconds);
+            return (s / 3600).ToString("00") + ":" + (s / 60 % 60).ToString("00") + ":" + (s % 60).ToString("00");
+        }
+
         public static string Ago(DateTime t)
         {
             TimeSpan d = DateTime.Now - t;

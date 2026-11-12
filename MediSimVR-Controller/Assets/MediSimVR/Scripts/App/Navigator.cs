@@ -6,7 +6,8 @@ using UnityEngine.UI;
 
 namespace MediSimVR
 {
-    public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp, Scene } // new ids go at the end
+    public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp, Scene,
+        Session, SessionHost, SessionPlayerPick, SessionPlayer, SessionSummary } // new ids go at the end
 
     [Serializable]
     public class NavItem
@@ -70,6 +71,7 @@ namespace MediSimVR
             if (actionSheet != null && actionSheet.root.activeSelf) { actionSheet.Hide(); return; }
             if (popup != null && popup.root.activeSelf) { popup.Hide(); return; }
             if (colorPicker != null && colorPicker.root.activeSelf) { colorPicker.root.SetActive(false); return; }
+            foreach (var s in screens) if (s.id == current && s.HandleBack()) return; // e.g. a sheet open on the screen
             if (back.Count > 0) { Show(back.Pop()); return; }
             if (current != ScreenId.Home) { Show(ScreenId.Home); return; }
             Application.Quit();
@@ -89,7 +91,8 @@ namespace MediSimVR
 
         void Highlight()
         {
-            ScreenId tab = current == ScreenId.Notifications ? ScreenId.Home : current == ScreenId.EditApp ? ScreenId.Settings : current;
+            ScreenId tab = current == ScreenId.Notifications ? ScreenId.Home : current == ScreenId.EditApp ? ScreenId.Settings
+                : current >= ScreenId.Session ? ScreenId.Session : current;
             foreach (var n in navItems)
             {
                 Color c = n.target == tab ? ThemeManager.Get(ColorRole.Primary) : ThemeManager.Get(ColorRole.SubText);
@@ -104,5 +107,11 @@ namespace MediSimVR
         }
 
         public void Say(string msg) { if (toast != null) toast.Show(msg); }
+
+        public T Get<T>() where T : AppScreen
+        {
+            foreach (var s in screens) if (s is T) return (T)s;
+            return null;
+        }
     }
 }

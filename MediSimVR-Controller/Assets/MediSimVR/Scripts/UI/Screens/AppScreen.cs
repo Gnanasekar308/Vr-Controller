@@ -30,6 +30,28 @@ namespace MediSimVR
 
         public abstract void Refresh();
 
+        // like Fill, but keeps the existing clones (no flicker / garbage when a list refreshes often); the caller rebinds them
+        protected static List<T> Keep<T>(T template, List<T> cache, int count) where T : Component
+        {
+            cache.RemoveAll(x => x == null);
+            while (cache.Count > count)
+            {
+                Destroy(cache[cache.Count - 1].gameObject);
+                cache.RemoveAt(cache.Count - 1);
+            }
+            while (cache.Count < count)
+            {
+                var r = Instantiate(template, template.transform.parent);
+                r.name = template.name + "_" + cache.Count;
+                r.gameObject.SetActive(true);
+                cache.Add(r);
+            }
+            return cache;
+        }
+
+        // Android back: true = handled here (e.g. a sheet was closed), false = go back a screen
+        public virtual bool HandleBack() { return false; }
+
         // clone list rows from an inactive template; keeps the template itself
         protected static List<T> Fill<T>(T template, int count) where T : Component
         {

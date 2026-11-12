@@ -49,3 +49,6 @@ crashlytics-buildsettings.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Demo screenshots (made by Tools/capture-demo-screens.sh; kept on disk, not in git)
+/demo-screens/

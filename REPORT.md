@@ -1,119 +1,125 @@
 # REPORT
 
 ## Task
-Scene tab v2: object editing like Unity, mobile-friendly. Replaces the M2 Scene tab design; the receivers (PC sync scene
-here, Quest receiver in the receiver repo) were updated with it.
-- Removed: Save / Load and `cube_state.json` (UI, code, file). Kept Reset. No poses / bookmarks. No movement limits
-  (position and rotation unlimited, scale only a minimum of 0.001 per axis).
-- Objects: every receiver object with `SyncObject` (id, name, locked) is sent to the phone (id, name, shape, colour,
-  pos / rot / scale); the phone draws matching primitives (or a bounds box). Hierarchy sheet: tap = select, outline on
-  the selected object. Every transform carries the object id and goes to ALL receivers (signed). The first receiver that
-  answers is the scene source; the phone then pushes its state to all others.
-- Tools: Move / Rotate / Scale / All-in-one (big buttons), gizmo red X / green Y / blue Z (axis arrows, centre = free move,
-  rings, scale handles + centre = uniform), Local / Global, Pivot / Center, Snap (move 0.1 / 0.5 / 1 m, rotate 15 / 45 / 90,
-  scale 0.1; long press = pick the step), Lock.
-- Inspector sheet: Position / Rotation (deg) / Scale X Y Z: type, - / +, drag the X/Y/Z label to scrub, long press = reset
-  that value; uniform scale toggle; Copy / Paste transform.
-- Camera: 1 finger on empty space = orbit, 2 fingers = pan, pinch on empty space = zoom, double tap object = focus,
-  Top / Front / Side / 3D, Focus (far objects come back).
-- Undo / Redo: 100 steps (>= 50), one step per finished gesture / Inspector edit, synced to PC + Quest.
-- Sync: "Live" (~30 / s while dragging, default) or "On release"; keep-alive + full state for late receivers.
+Demo-only day: the phone app must run a 5-minute demo on realistic mock data; the real backend (Quest receiver,
+voice, PC recorder) belongs to another developer and is connected tomorrow.
+1. Stop backend work: the parked backend code (M4 WIP: signed beacon check, `Net.IsVr`) is committed on the branch
+   `backend-paused` (`7ce7c11`, pushed); work continues on `main`. The receiver repo was not touched.
+2. Demo mode, default ON, switch in Settings (the app reloads): 4 Quests (Quest-A1B2, Quest-C3D4, Quest-E5F6 offline,
+   Quest-G7H8) with battery, playing state, simulated speaking and text replies. The UI talks only to service interfaces:
+   `IControllerService` (existing) + new `ISessionService`, so the real backend replaces the mocks without UI changes.
+3. New "Session" tab (built by MediSimUIBuilder, same style): HOST / PLAYER start cards; Host dashboard (Quest cards with
+   online, battery, content, animated speaking icon, muted icon, select one / several / all; Play, Pause, Resume, Stop,
+   Send content, Text, Mute, Open in Scene; voice bar with live voice switch, Mute me, who is speaking; text sheet with
+   quick messages and chat bubbles with Quest replies; "Recording on PC-LAB1 00:12:34" chip; live session timeline of
+   every action incl. object moves, text, voice, join / leave; "Host already active" demo message; End session ->
+   summary with duration, devices, event counts, "Saved on PC: MediSimVR_Sessions/<date>_host.json"). Player: pick one
+   Quest -> single-Quest screen (status, play controls, voice, Open in Scene, Leave). Current mode on Home and in the
+   Session headers.
+4. Demo ready: every tab works in demo mode, all theme presets; build + install on ZA223HXPHV; logcat; screenshots of
+   every main screen in `demo-screens/`; `DEMO.md` = 5-minute click-by-click script.
+5. Quick changes: the demo data and demo-only texts (mock Quests / files, quick messages, Quest replies, voice lines,
+   "Host already active" text, recorder name, saved-file path, mode labels), the session colours and all timings are in
+   `DemoConfig.cs`. Generic screen titles and button labels stay in `MediSimUIBuilder` / the screen scripts.
 
-## Files changed (phone repo, Unity project `MediSimVR-Controller/`)
-- `Assets/MediSimVR/SceneSync/` (shared protocol v2, identical to the receiver repo: `diff -r` = no difference):
-  `SceneSyncProtocol.cs`, `SceneSyncMessage.cs`, `SyncReceiver.cs`, new `SyncObject.cs`, `SyncObjectInfo.cs`,
-  `Editor/SyncDemoObjects.cs` (same demo object ids on PC and Quest).
-- Removed: `Scripts/SceneSync/CubeStateFile.cs` (Save / Load), `Scripts/UI/Widgets/CubeGestures.cs` (old gestures).
-- New `Scripts/SceneEdit/`: `ScenePose.cs`, `SceneObjectState.cs`, `SceneDocument.cs` (objects, selection, edits,
-  Undo / Redo, copy / paste, reset), `SceneEditController.cs` (gizmo drags, pinch scale, tap / double tap, focus).
-- New `Scripts/Scene3D/`: `SceneWorldView.cs`, `SceneObjectView.cs`, `OrbitCameraRig.cs`, `TransformGizmo.cs`,
-  `GizmoDrag.cs` (+ `SnapSettings`), `GizmoMeshes.cs`, `SceneViewInput.cs` (touch / mouse; dead zone on handles,
-  double tap on a handle = focus, 2nd finger cancels an unmoved handle grab = pinch).
-- New widgets (each MonoBehaviour in its own file): `ChipToggle.cs`, `LongPress.cs`, `ScrubArea.cs`, `InspectorField.cs`,
-  `HierarchyRowView.cs`.
-- `Scripts/SceneSync/SceneSyncClient.cs`: v2 (scene source, object list parts, per-object transforms to all targets,
-  dirty sends <= ~30 / s, keep-alive round robin, full state for new targets, same receiver on a 2nd address de-duplicated).
-- `Scripts/UI/Screens/SceneScreen.cs`: v2 wiring (no Save / Load).
-- `Editor/MediSimUIBuilder.cs`: `BuildScene` v2 (tool row, option row, view with Undo / Redo / Reset + Top / Front / Side /
-  3D / Focus, bottom bar Objects / Inspector / Live-On release, Objects + Inspector sheets); `Scenes/Main.unity` regenerated
-  by it (not hand-edited).
-- `Editor/SyncWorldBuilder.cs`: no fixed cube any more; outline / gizmo materials; built-in primitive mesh references.
-- New `Shaders/SyncOutline.shader` (selection outline), `Shaders/SyncGizmo.shader` (handles on top); materials
-  `SyncOutline.mat`, `SyncGizmo.mat`, `SyncObjectBase.mat`, `SyncObj_*.mat` (demo object colours).
-- M3 files, now v2: `Editor/PCSyncSceneBuilder.cs` (menu MediSimVR > Build PC Sync Scene: SyncWorld + demo objects +
-  SyncReceiver kind "pc" on SyncWorld + PCSyncStatus; not in the build settings), `Scripts/SceneSync/PCSyncStatus.cs`
-  (OnGUI: name, IPs, port, object count, counters), `Scenes/PCSync.unity` (generated).
-- New `Editor/SceneSimTest.cs`: automated Play-mode test (below).
-- Not in this commit (parked in `git stash`, M4): beacon signature check + `Net.IsVr`.
+## Files changed (phone repo)
+- New `Scripts/Demo/`: `DemoConfig.cs` (all demo values), `MockSessionService.cs` (ISessionService mock: host / player,
+  recording clock, speaking turns, text replies, one Quest leaves and rejoins, battery drain, timeline, summary),
+  `DemoSceneLink.cs` (Scene tab without network: demo objects, demo Quests as targets), `DemoTour.cs` (MonoBehaviour:
+  walks through every screen + theme preset when started with `-demotour`, used for screenshots and the smoke test).
+- New `Scripts/Core/ISessionService.cs` (interface + SessionRole / SessionEvent / ChatMessage / SessionSummary),
+  `Scripts/SceneSync/ISceneLink.cs` (Scene tab link interface; `SceneSyncClient` implements it, adds `TargetNames`).
+- New screens: `SessionStartScreen.cs`, `SessionHostScreen.cs`, `SessionPlayerPickScreen.cs`, `SessionPlayerScreen.cs`,
+  `SessionSummaryScreen.cs`; new widgets: `QuestCardView.cs`, `TimelineRowView.cs`, `ChatBubbleView.cs`, `SpeakingPulse.cs`
+  (each MonoBehaviour in its own file).
+- Changed: `AppRoot.cs` (picks mock or real services by demo mode, ticks the session, `SetDemoAndRestart`),
+  `MockControllerService.cs` (Quests / files from DemoConfig, `NotifyChanged`), `Navigator.cs` (Session screen ids,
+  Session tab highlight, `Get<T>()`, screen back handling), `AppScreen.cs` (`Keep()` row reuse, `HandleBack()`),
+  `Models.cs` (`Fmt.Clock`), `HomeScreen.cs` (mode chip + DEMO badge), `SettingsScreen.cs` (Demo mode row),
+  `SceneScreen.cs` (uses `ISceneLink`; demo link in demo mode; "Open in Scene" for one Quest; object moves go to the
+  session timeline), `OrbitCameraRig.cs` (focus uses the narrower field of view: a portrait view is narrow sideways),
+  `ThemeManager.cs` (`Preview()`: apply a theme without saving it; used by the demo tour).
+- UI builder: `Editor/MediSimUIBuilder.cs` (now `partial`; 7 tabs incl. Session; Home mode chip; Settings Demo row;
+  `DemoTour` on the App object; inactive object with Box / Sphere / Capsule colliders so the IL2CPP build keeps them),
+  new `Editor/MediSimUIBuilder.Session.cs` (all Session screens). `Scenes/Main.unity` regenerated by the builder.
+- Tests: new `Editor/DemoSmokeTest.cs` (batchmode, demo ON, runs DemoTour, counts errors); `Editor/SceneSimTest.cs`
+  (forces demo mode OFF while it runs, restores it).
+- `DEMO.md`, `Tools/capture-demo-screens.sh` (adb screenshots of the tour), `.gitignore` (+ `demo-screens/`).
 
 ## Tested + real results
-Logs in `MediSimVR-Controller/Logs/` (git-ignored).
-- Build: `v2_ui.log` `MediSimUIBuilder.Build`: `UI scene built ... screens 8, tabs 6`, exit 0, no compiler errors.
-- Automated Play-mode test `SceneSimTest.Run` (batchmode, Main.unity + PCSync.unity in ONE Editor, UDP over 127.0.0.1,
-  touches simulated in the view's camera pixels through `SceneViewInput`, the same code as real fingers after the
-  screen -> view conversion; PC receiver = the shared `SyncReceiver` + `SyncObject` code):
-  Final code (after the last change): `v2_sim6.log` `[SIM-TEST] RESULT 82 passed, 0 failed -> ALL PASSED`, Unity exit 0
-  (also `v2_sim5.log` 82/82 and `v2_sim4.log` 82/82 before the two small last changes). The 82 checks (values from `v2_sim4.log`):
-  - PC side: PCSync loaded, `SyncReceiver` kind pc on SyncWorld with 6 objects, listening on UDP 8771, name `PC-B5A0`.
-    `Send-SceneSyncTest.ps1 -QuestIp 127.0.0.1` (receiver repo) run by the test: `RESULT: ALL PASSED`, exit 0 (here + count 6,
-    object list 2/2 parts, transform applied, bad sig dropped, old seq ignored, receiver reports the right pose).
-  - Scene from the source: phone got 6 objects from `PC-B5A0`; shapes cube / sphere / cylinder / capsule / mat=plane /
-    table=box (locked), table bounds 1.0 x 0.75 x 0.6; phone pose = PC pose; status chip "Connected: PC-B5A0"; 6 Hierarchy rows.
-  - Selection: tap on the cube selects it + outline (2 materials); tap on empty space deselects; Hierarchy row tap selects.
-  - Move: X arrow -> only X (+1.177), Y arrow -> only Y (+0.795), Z arrow -> only Z (-1.901); one drag = one undo step;
-    handle touched + 4 px = no change, no undo step; centre ball = free move; PC follows each time.
-  - Undo / Redo restore / re-apply and reach the PC.
-  - Rotate: Y ring -> 55.7 deg around (0, 1, 0) only, position unchanged, PC follows.
-  - Scale: Z handle -> only Z, centre cube -> uniform x1.868.
-  - Snap on (0.5 m) -> X moved exactly 1.0; snap off; long press on the magnet opens the step choice.
-  - All-in-one picking: centre = free move, outer X = move X, inner X cube = scale X, ring = rotate Y.
-  - Local: gizmo X = the cube's own X; Global: gizmo X = world X.
-  - Lock: locked cube does not move on drag; lock and unlock reach the PC (`SyncObject.Locked`).
-  - Inspector: 9 fields; typed X = 1.5 (synced), + / - on Y = +/- the step, scrub Z label 250 units = +1 m (one undo step),
-    long press X label = X reset to 0 only, rotation Y = -725 kept, "abc" ignored, scale -5 -> 0.001, uniform: X = 2 -> 2,2,2,
-    X = 400 m (unlimited) synced to the PC (399.990 while settling), Focus puts the far cube in the view centre (0.5, 0.5).
-  - Copy / Paste: sphere gets the cube transform, PC sphere follows.
-  - Reset: all unlocked objects back to the scene start in one undo step, locked table untouched, synced; Undo brings the edits back.
-  - Undo depth: 60 edits -> 86 steps in the history; 55 x Undo walks back exactly 55 steps; PC matches afterwards.
-  - On release: PC does not move while the finger is down, follows after lifting; Live: PC moves while the finger is down.
-  - Pinch on the selected cube = uniform scale x3.133.
-  - Camera: orbit (yaw 101.8 / pitch 12.7), 2-finger pan, pinch-out zoom 1.41 -> 0.72, double tap on the cylinder = select +
-    focus (pivot = its centre), Top / Front / Side / 3D view directions.
-  - Late receiver: a fake "Quest-SIM1" that answers later gets all 6 objects with the phone's current state;
-    status chip "Connected: PC-B5A0, Quest-SIM1".
-  - No `cube_state.json` written.
-- Phone (Motorola edge 70 fusion ZA223HXPHV, 1272x2772), APK from `v2_apk2.log` (`Build Finished, Result: Success.`,
-  16,195,470 bytes), `adb install -r` = Success (same package `com.medisim.vr`, data kept). Logcat:
-  `[MediSimVR] Removed old Save/Load file /storage/emulated/0/Android/data/com.medisim.vr/files/cube_state.json`
-  (the old M2 save file is gone; `run-as` is not possible on this non-debuggable build, so the app removes it itself, once),
-  `Scene view RenderTexture 1197x1532`, `SceneSync client on UDP 52997, discover to 255.255.255.255, 192.0.0.31, 10.65.167.255`,
-  no exceptions. Screenshots (adb screencap): Scene tab (status chip "Searching PC / Quest on this Wi-Fi...", Move / Rotate /
-  Scale / All, Local / Global, Pivot / Center, Snap, Lock, Undo / Redo greyed, Reset, Top / Front / Side / 3D / Focus,
-  hint "Waiting for the scene from a PC / Quest", Objects, Inspector, Live / On release), Objects sheet (empty text),
-  Inspector sheet ("No object selected", Position / Rotation / Scale rows with red / green / blue X Y Z, - / +, Uniform),
-  tap on "Move" selects it. Found on the phone and fixed: the "On release" label was cut ("On rele...") -> the Live / On
-  release control is wider now (builder change; rebuilt, see below). Device testing stopped when an incoming call appeared
-  on the phone.
-- Earlier runs found and fixed (all in this change): run 1 76/81 (test bugs: wrong table-bounds expectation, stale gizmo
-  position in the test; app bug: a double tap on an object landed on its new gizmo -> fixed with a handle dead zone + double
-  tap on an unmoved handle = focus), run 3 81/82 (app: the first pinch finger on a handle blocked the pinch -> a 2nd finger now
-  cancels an unmoved handle grab).
+- Backend parked: branch `backend-paused` = `7ce7c11`, pushed to origin; `main` continues from `0cb329e`.
+- Editor smoke test (batchmode, `MediSimVR.EditorTools.DemoSmokeTest`, demo ON, UI rebuilt, Play mode, full DemoTour):
+  `[MediSimVR] UI scene built ... screens 13, tabs 7` and `[DEMO-TEST] RESULT screens 35, errors 0  -> PASSED`.
+- Scene Play-mode test (batchmode `SceneSimTest`, demo forced OFF so the real SceneSync path is tested):
+  `[SIM-TEST] RESULT 82 passed, 0 failed  -> ALL PASSED`.
+- APK build (batchmode `PhoneBuild.Build`): `Build result: Succeeded`, `MediSimVR-Controller/Builds/MediSimVR-Controller.apk`
+  16,309,454 bytes.
+- Install on ZA223HXPHV: `adb install -r` -> `Success`, `lastUpdateTime=2026-11-10 19:27:19` (app data kept, no uninstall).
+  (One earlier install attempt failed only because the script used the wrong APK path; it was rerun with the right path.)
+- Phone run (`am start -S -W ... -e unity "-demotour"`, then `adb logcat -d`, app pid 25624):
+  - `[MediSimVR] AppRoot.Awake, demo mode ON`
+  - `[MediSimVR] Demo scene loaded (6 objects)`
+  - `[MediSimVR] DEMO-TOUR done 35 screens`
+  - 0 lines `not a Unity engine type` (the previous phone build logged
+    `AddComponent asking for "SphereCollider" which is not a Unity engine type` = IL2CPP stripped the collider, so the
+    sphere could not be tapped; fixed by the inactive KeepColliderTypes object in the builder).
+  - 0 exceptions from the app. Only the usual GPU driver start-up probe lines (`qdgralloc` / `Gralloc4` format 59) at launch.
+- Screenshots: 35 phone screenshots in `demo-screens/` (git-ignored): 01_home, 02_devices, 03_send, 04_control,
+  05_session_start, 06_session_host_already_active, 07_session_host, 08_session_host_timeline, 09_session_send_content,
+  10_session_text_chat, 11_scene, 12_scene_inspector, 13_scene_objects, 14_session_host_after_scene, 15_session_summary,
+  16_session_player_pick, 17_session_player, 18_settings, 19_edit_app, 20_notifications, 21-35 = Default / Dark / Light /
+  Ocean / Purple theme x (Home, Host, Scene). Checked by eye: every screen renders, texts fit, all 5 theme presets apply.
+- Scene framing (found on the first phone run: the portrait view cut the objects at the sides): fixed in
+  `OrbitCameraRig.Focus` (uses the horizontal field of view when the view is portrait); `11_scene.png` of the new build
+  shows all demo objects inside the view.
+
+### After the round 1 review fixes (final build)
+- Editor smoke test again (after the DemoTour / player / pick fixes): `[MediSimVR] UI scene built ... screens 13, tabs 7`,
+  `[DEMO-TEST] RESULT screens 35, errors 0  -> PASSED`.
+- APK build after these fixes: `Build result: Succeeded`, 16,320,510 bytes; installed (`Success`,
+  `lastUpdateTime=2026-11-10 19:37:45`), phone tour: `DEMO-TOUR done 35 screens`, 0 `not a Unity engine type`, 0 app
+  exceptions. `16_session_player_pick.png`: Quest-E5F6 (offline) card dimmed and not tappable, but the longer hint text
+  was cut off ("...as a play...").
+- Hint text shortened ("Tap your online Quest to join as a player", text only; smoke test not rerun for it). Final APK:
+  `Build result: Succeeded`, 16,320,578 bytes (19:44). Phone run of this build (app pid 28759):
+  `AppRoot.Awake, demo mode ON` (19:44:34), `Demo scene loaded (6 objects)`, `DEMO-TOUR done 35 screens` (19:47:04),
+  0 `not a Unity engine type`, 0 app exceptions; 35 new screenshots. The install command's own output was lost (the
+  Claude session was interrupted); the new short hint text, shown in full in the new `16_session_player_pick.png`, proves
+  this build is the one on the phone.
+- Scene Play-mode test not rerun after round 1: `SceneScreen.cs` only got a comment; `ThemeManager.Preview` is not used
+  by that test.
+
+### Review input note
+`*.unity` scenes are excluded from the Codex diff (Main.unity is regenerated by MediSimUIBuilder and is too large);
+the builder code that generates it is in the diff.
 
 ## Not verified
-- Real fingers on the phone (pinch, two-finger pan, scrub feel, long press timing, button sizes) and the Editor mouse:
-  the test drives the gesture logic with simulated pointer events, not the touch screen.
-- Phone + PC + Quest over a real network (Wi-Fi / USB tethering + Windows Firewall), and the Quest headset view:
-  Quest not connected, phone and PC not on one network yet.
-- The final APK (`v2_apk3.log`: `Build Finished, Result: Success.`, 16,195,350 bytes, wider Live / On release control) is built
-  but not installed / looked at on the phone yet (incoming call).
-- Seen once during the adb taps on the phone, not explained: after closing the Objects sheet and opening the Inspector, the
-  tool row showed "All" selected although "All" was not tapped (the next tap on "Move" worked normally). The first tap on
-  "Inspector" also did not open the sheet (the second did). Needs the hand test on the phone.
-
-## Review input note
-The generated scene files `Scenes/Main.unity` (about 90,000 changed lines) and `Scenes/PCSync.unity` are left out of the
-diff given to the reviewer because of their size; they are produced by `MediSimUIBuilder.Build` / `PCSyncSceneBuilder.Build`
-(not hand-edited) and can be read from the working tree. Everything else is in the diff.
+- Real human taps on the phone (the tour presses the app's own buttons from code; the touch layer itself is the same as
+  in the earlier releases). The presenter should do one dry run with DEMO.md.
+- That the saved theme is unchanged after the tour: by code (`ThemeManager.Preview` does not write PlayerPrefs, the tour
+  ends with `ThemeManager.Load()`); the release APK is not debuggable, so the prefs file was not read on the phone.
+- Demo mode OFF path on the phone (real network + Session "backend tomorrow" text): built and covered by the Scene
+  Play-mode test in the Editor, not opened on the phone.
+- Real backend: none today by design (ISessionService has no real implementation yet).
+- With the real network, "Open in Scene" for one Quest is a label only: the scene is shared and edits go to every
+  receiver (SceneSync v2 has no per-device scene). Fine for the demo; to be decided with the backend.
 
 ## Review rounds
-- Round 1: see REVIEW.md.
+- Round 1: FAIL (4 major, 1 minor). Changes:
+  1. `SessionPlayerPickScreen.cs`: offline Quest cards are shown dimmed and their button is disabled
+     (`button.interactable = d.Online`); hint text says offline Quests cannot be picked.
+  2. `SceneScreen.ShowFor`: no code change, comment added. SceneSync has ONE shared scene: every receiver holds the
+     same objects (same ids) and every edit goes to all receivers; the demo link serves the same scene for every
+     Quest. "Open in Scene" for one Quest only names that Quest in the status line and tags the timeline entries, so
+     when the filter is cleared there is no per-Quest scene to unload (reloading would only throw away undo history).
+  3. `DemoTour.cs`: `Run` returns `bool`, sets `Running` / `Steps` before the coroutine starts; `OnDisable` clears
+     `Running` if the tour is stopped (scene reload, app or Play mode exit). Theme presets are now applied with the new
+     `ThemeManager.Preview` (not saved) and the saved theme is reloaded at the end (`ThemeManager.Load`), so an
+     interrupted tour can no longer leave a preset saved as the user's theme. `DemoSmokeTest` fails at once when the
+     tour does not start. (Its timeout path already leaves Play mode outside batchmode: `EditorApplication.isPlaying = false`
+     in `Finish`.)
+  4. `SessionPlayerScreen.cs`: live voice switch and Mute me now log to the session timeline (`Voice` / `Mute`) and
+     refresh the screen at once.
+  5. `DEMO.md`: Demo mode OFF steps spelled out (confirm, app restarts, then open Session).
+- Round 2: PASS with 1 minor (the "all demo text in DemoConfig" claim was too wide). Fixed by narrowing the wording in
+  REPORT.md (task item 5) and DEMO.md; no code change. REVIEW.md = round 2 answer.

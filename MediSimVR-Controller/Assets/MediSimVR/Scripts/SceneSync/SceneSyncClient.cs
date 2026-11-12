@@ -19,7 +19,7 @@ namespace MediSimVR
     //    and the full state to every receiver that appears later.
     // Receiving + signature check run on a background thread (pure .NET, no Unity API); Tick() (main thread) parses,
     // logs and sends. Nothing here blocks the main thread.
-    public class SceneSyncClient : IDisposable
+    public class SceneSyncClient : ISceneLink
     {
         public class Target
         {
@@ -51,6 +51,15 @@ namespace MediSimVR
         public event Action<List<SyncObjectInfo>, string> SceneReceived;   // object list + source name
 
         public IReadOnlyList<Target> Targets { get { return targets; } }
+        public IReadOnlyList<string> TargetNames
+        {
+            get
+            {
+                var l = new List<string>(targets.Count);
+                foreach (var t in targets) l.Add(t.Name);
+                return l;
+            }
+        }
         public string Error { get; private set; }
         public int ManualCount { get { return manual.Count; } }
         public int LocalPort { get; private set; }

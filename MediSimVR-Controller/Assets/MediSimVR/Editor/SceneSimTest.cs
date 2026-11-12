@@ -29,6 +29,7 @@ namespace MediSimVR.EditorTools
         const string Tag = "[SIM-TEST] ";
         const string RunKey = "MSVR_SCENE_SIM_RUN";
         const string PsKey = "MSVR_SCENE_SIM_PS";
+        const string DemoPrevKey = "MSVR_SCENE_SIM_DEMO_PREV";
         const string MainScene = "Assets/MediSimVR/Scenes/Main.unity";
 
         static readonly Stack<IEnumerator> stack = new Stack<IEnumerator>();
@@ -56,6 +57,9 @@ namespace MediSimVR.EditorTools
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-psScript") ps = args[i + 1];
             SessionState.SetString(PsKey, ps);
+            // this test talks to the real PC receiver: demo mode OFF while it runs (restored in Finish)
+            SessionState.SetInt(DemoPrevKey, PlayerPrefs.GetInt(DemoConfig.PrefKey, 1));
+            DemoConfig.Enabled = false;
             MediSimUIBuilder.Build();
             PCSyncSceneBuilder.Build();
             EditorSceneManager.OpenScene(MainScene);
@@ -135,6 +139,8 @@ namespace MediSimVR.EditorTools
             running = false;
             EditorApplication.update -= Tick;
             SessionState.EraseBool(RunKey);
+            PlayerPrefs.SetInt(DemoConfig.PrefKey, SessionState.GetInt(DemoPrevKey, 1));
+            PlayerPrefs.Save();
             Debug.Log(Tag + "RESULT " + passed + " passed, " + failed + " failed" + (failed == 0 ? "  -> ALL PASSED" : ""));
             if (Application.isBatchMode) EditorApplication.Exit(failed == 0 ? 0 : 1);
             else EditorApplication.isPlaying = false;
