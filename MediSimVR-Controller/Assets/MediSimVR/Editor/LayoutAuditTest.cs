@@ -20,8 +20,8 @@ namespace MediSimVR.EditorTools
     //   - clipped text: a text cut with "..."
     //   - overlap: two texts, or two buttons, drawn on top of each other
     //   - off screen: a button outside the screen area (inside a scroll list: outside its width)
-    // plus the design system rules: Home Control Mode = Session HOST card, Receiver Mode = PLAYER card, 6 bottom tabs
-    // without Settings, every primary button BtnH high. Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
+    // plus the design system rules: Home Control Mode = Session HOST card, Receiver Mode = PLAYER card, 5 bottom tabs
+    // without Settings / Scene, every primary button BtnH high. Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
     // (git-ignored) for a visual check. The canvas is switched to world space for this, nothing on a device changes.
     [InitializeOnLoad]
     public static class LayoutAuditTest
@@ -200,17 +200,18 @@ namespace MediSimVR.EditorTools
 
                 yield return Visit(h, ++n, "home", () => nav.Tab(ScreenId.Home));
                 yield return Visit(h, ++n, "session", () => nav.Tab(ScreenId.Session));
-                yield return Visit(h, ++n, "quest_list", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.QuestList); });
-                yield return Visit(h, ++n, "play_host", () => nav.Push(ScreenId.Play));
+                yield return Visit(h, ++n, "devices", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.Devices); });
+                yield return Visit(h, ++n, "send", () => nav.Push(ScreenId.Send));
+                yield return Visit(h, ++n, "control_top", () => { nav.Push(ScreenId.Control); ScrollTo(1f); });
+                yield return Visit(h, ++n, "control_middle", () => ScrollTo(0.5f));
+                yield return Visit(h, ++n, "control_bottom", () => ScrollTo(0f));
                 yield return Visit(h, ++n, "session_host", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.SessionHost); });
-                yield return Visit(h, ++n, "devices", () => nav.Tab(ScreenId.Devices));
-                yield return Visit(h, ++n, "send", () => nav.Tab(ScreenId.Send));
-                yield return Visit(h, ++n, "control", () => nav.Tab(ScreenId.Control));
-                nav.Tab(ScreenId.Scene);
+                nav.Tab(ScreenId.Control);
+                nav.Push(ScreenId.Scene);
                 yield return Wait(DemoConfig.SceneLoadSeconds + 0.6f);   // the demo scene arrives
                 var scene = nav.Get<SceneScreen>();
                 if (scene.Doc != null && scene.Doc.Get("cube") != null) scene.Doc.Select("cube");
-                yield return Visit(h, ++n, "scene", () => nav.Tab(ScreenId.Scene));
+                yield return Visit(h, ++n, "scene", () => { });
                 yield return Visit(h, ++n, "scene_full_view", () => scene.SetFullView(true));
                 scene.SetFullView(false);
                 yield return Visit(h, ++n, "settings", () => { nav.Tab(ScreenId.Home); nav.Push(ScreenId.Settings); });
@@ -224,8 +225,9 @@ namespace MediSimVR.EditorTools
                 svc.ControlFileId = "f3";
                 svc.Send(svc.ControlFile);
                 yield return Wait(DemoConfig.FakeSendSeconds + 0.4f);
-                yield return Visit(h, ++n, "play_player", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.Play); });
+                yield return Visit(h, ++n, "player_send", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.Send); });
                 yield return Visit(h, ++n, "my_quest", () => nav.Push(ScreenId.SessionPlayerPick));
+                yield return Visit(h, ++n, "player_control", () => { nav.Tab(ScreenId.Control); ScrollTo(1f); });
                 yield return Visit(h, ++n, "session_player", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.SessionPlayer); });
                 var sum = nav.Get<SessionSummaryScreen>();
                 if (ses != null && sum != null) sum.summary = ses.End();
@@ -243,6 +245,17 @@ namespace MediSimVR.EditorTools
 
         static string sizeTag = "";
 
+        // scroll the current screen's list (1 = top, 0 = bottom), so every part of a long screen is checked
+        static void ScrollTo(float y)
+        {
+            foreach (var s in nav.screens)
+                if (s.id == nav.Current)
+                {
+                    var sc = s.GetComponentInChildren<ScrollRect>();
+                    if (sc != null) { Canvas.ForceUpdateCanvases(); sc.verticalNormalizedPosition = y; }
+                }
+        }
+
         // ------------------------------------------------------------------ design system rules (once)
 
         static void DesignRules()
@@ -253,7 +266,9 @@ namespace MediSimVR.EditorTools
             SameCard(home.receiverModeButton, start.playerButton, "Home Receiver Mode and Session PLAYER use the same secondary card");
             bool settingsTab = false;
             foreach (var i in nav.navItems) if (i.target == ScreenId.Settings) settingsTab = true;
-            Check(nav.navItems.Count == 6 && !settingsTab, "bottom navigation has 6 tabs, no Settings (" + nav.navItems.Count + ")");
+            string tabs = "";
+            foreach (var i in nav.navItems) tabs += i.target + " ";
+            Check(tabs == "Home Session Devices Send Control " && !settingsTab, "bottom navigation: Home, Session, Devices, Send, Control (" + tabs.Trim() + ")");
             Check(home.settingsButton != null && home.settingsButton.transform.parent.parent.name == "Header", "Settings button in the Home header");
             var bell = (RectTransform)home.bellButton.transform.parent;
             var set = (RectTransform)home.settingsButton.transform.parent;

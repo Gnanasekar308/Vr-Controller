@@ -9,7 +9,8 @@ namespace MediSimVR
     // Demo screenshots without touching the phone: start the app with
     //   adb shell am start -n com.medisim.vr/com.unity3d.player.UnityPlayerActivity -e unity "-demotour"
     // (or put an empty file "demo_tour.txt" into the app's files folder). In demo mode the app then walks through every
-    // main screen of the Control Mode flow (and the theme presets), pressing its own buttons and checking the way back;
+    // step of the Control Mode flow (Session > Devices > Send > Control > Scene, player path, record), pressing its own
+    // buttons and checking each step and the way back;
     // a failed check is logged as an error. Each screen logs "[MediSimVR] DEMO-TOUR <nn> <name>"
     // and stays still for a moment so a PC script can take an adb screenshot. The theme presets are only previewed (not
     // saved), so the user's theme stays even if the tour is interrupted.
@@ -86,6 +87,29 @@ namespace MediSimVR
             Click(nav.popup.okButton);
         }
 
+
+        // scroll position of the current screen's list (1 = top, 0 = bottom)
+        private static void ScrollTo(AppScreen s, float y)
+        {
+            var sc = s.GetComponentInChildren<ScrollRect>();
+            if (sc != null) { Canvas.ForceUpdateCanvases(); sc.verticalNormalizedPosition = y; }
+        }
+
+        private static bool AnyPlaying(IControllerService svc)
+        {
+            foreach (var d in svc.SelectedOnline()) if (d.State == DeviceState.Playing) return true;
+            return false;
+        }
+
+        // pick a file through the app's own content sheets: type (0 Video, 1 Audio, 2 Image, 3 Text), then a file
+        private IEnumerator PickContent(Button select, int type, int file, string shotOfList)
+        {
+            Click(select);
+            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[type]);
+            if (shotOfList != null) yield return Shot(shotOfList);
+            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[file]);
+        }
+
         private IEnumerator Tour()
         {
             step = 0;
@@ -93,92 +117,66 @@ namespace MediSimVR
             var svc = AppRoot.Service;
             var home = nav.Get<HomeScreen>();
             var start = nav.Get<SessionStartScreen>();
-            var list = nav.Get<QuestListScreen>();
-            var play = nav.Get<PlayScreen>();
+            var devices = nav.Get<DevicesScreen>();
+            var send = nav.Get<SendScreen>();
+            var control = nav.Get<ControlScreen>();
             var pick = nav.Get<SessionPlayerPickScreen>();
             var host = nav.Get<SessionHostScreen>();
+            var scene = nav.Get<SceneScreen>();
             Debug.Log("[MediSimVR] DEMO-TOUR start");
 
-            // ----- Home > Control Mode > Session -----
+            // ----- Home, bottom bar -----
             nav.Tab(ScreenId.Home); yield return Shot("home");
-            bool settingsTab = false;
-            foreach (var item in nav.navItems) if (item.target == ScreenId.Settings) settingsTab = true;
-            Check(nav.navItems.Count == 6 && !settingsTab, "bottom navigation: 6 tabs, Settings is in the Home header");
+            var tabs = "";
+            foreach (var item in nav.navItems) tabs += item.target + " ";
+            Check(tabs == "Home Session Devices Send Control ", "bottom bar: Home, Session, Devices, Send, Control (" + tabs.Trim() + ")");
+
+            // ----- Control Mode > Session > HOST > Devices (step 1) -----
             Click(home.controlModeButton);
             Expect(ScreenId.Session, "Control Mode opens the Session screen");
             yield return Shot("session_start");
-
-            // ----- HOST > Quest list -----
             Click(start.hostButton);
             yield return ConfirmIfAsked("session_host_already_active");   // demo: another phone hosts, take over
-            Expect(ScreenId.QuestList, "HOST opens the Quest list");
-            yield return Shot("quest_list");
-            list.filterSeg.Select(3, true); yield return Shot("quest_list_filter_in_use");
-            list.filterSeg.Select(2, true); yield return Shot("quest_list_filter_offline");
+            Expect(ScreenId.Devices, "HOST opens the Devices tab (step 1)");
+            yield return Shot("devices");
+            devices.filterSeg.Select(3, true); yield return Shot("devices_filter_in_use");
+            devices.filterSeg.Select(2, true);
             QuestDevice offline = null;
             foreach (var d in svc.Devices) if (!d.Online) offline = d;
-            if (offline != null && list.list.Rows.Count > 0)
+            if (offline != null && devices.list.Rows.Count > 0)
             {
-                Click(list.list.Rows[0].button);
+                Click(devices.list.Rows[0].button);
                 Check(!offline.Selected, "an offline Quest cannot be selected");
             }
-            list.filterSeg.Select(0, true);
-            if (list.list.Rows.Count > 1) { Click(list.list.Rows[0].button); Click(list.list.Rows[1].button); }
+            devices.filterSeg.Select(0, true);
+            if (devices.list.Rows.Count > 1) { Click(devices.list.Rows[0].button); Click(devices.list.Rows[1].button); }
             Check(svc.SelectedOnline().Count == 2, "two Quests selected");
-            yield return Shot("quest_list_selected");
-            Click(list.continueButton);
-            Expect(ScreenId.Play, "Continue opens the Play page");
+            yield return Shot("devices_selected");
 
-            // ----- Play page (host): video -----
-            Click(play.kindSeg.buttons[(int)MediaKind.Video]);
-            yield return Shot("play_choose_video");
-            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[1]);   // the second demo video
-            yield return Shot("play_host_ready");
-            Click(play.sendButton);
-            yield return ConfirmIfAsked("play_replace_content");   // a Quest already plays another video
+            // ----- Connect > Send (step 2) -----
+            Click(devices.connectButton);
+            Expect(ScreenId.Send, "Connect opens the Send tab (step 2)");
+            yield return PickContent(send.selectButton, 0, 1, "send_choose_video");   // CPR_Training.mp4
+            yield return Shot("send_ready");
+            Click(send.sendButton);
+            yield return ConfirmIfAsked("send_replace_content");   // Quest-A1B2 already plays another video
+            Expect(ScreenId.Control, "Send opens the Control tab (step 3)");
+
+            // ----- Control: the video plays on the Quests (and on this phone when the file has media) -----
             yield return new WaitForSecondsRealtime(DemoConfig.FakeSendSeconds + Mathf.Max(settle, 2.5f));
-            yield return Shot("play_host_playing");
-            Click(play.controls.pauseButton); yield return Shot("play_host_paused");
-            Click(play.controls.resumeButton);
+            Check(AnyPlaying(svc), "the video plays on the Quests after Send");
+            ScrollTo(control, 1f); yield return Shot("control_playing");
+            Click(control.controls.pauseButton);
+            Check(!AnyPlaying(svc), "Pause pauses the Quests");
+            ScrollTo(control, 0.62f); yield return Shot("control_buttons_paused");
+            Click(control.controls.resumeButton);
+            Check(AnyPlaying(svc), "Resume plays again");
 
-            // ----- Play page (host): image -> Show / Hide -----
-            Click(play.kindSeg.buttons[(int)MediaKind.Image]);
-            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[0]);
-            Click(play.sendButton);
-            yield return ConfirmIfAsked(null);
-            yield return new WaitForSecondsRealtime(DemoConfig.FakeSendSeconds + 1f);
-            yield return Shot("play_host_image");
-
-            // ----- Change (host) = the Quest list; Continue comes back -----
-            Click(play.changeTargetButton);
-            Expect(ScreenId.QuestList, "Change on the Play page goes to the Quest list (host)");
-            Click(list.continueButton);
-            Expect(ScreenId.Play, "Continue goes back to the Play page");
-
-            // ----- back: Play -> Quest list (header back) -> Session (Android back) -----
-            Click(play.backButton);
-            Expect(ScreenId.QuestList, "back from the Play page goes to the Quest list (host)");
-            yield return Shot("quest_list_in_use");
-            nav.Back();
-            Expect(ScreenId.Session, "back from the Quest list goes to the Session screen");
-            yield return Shot("session_start_live");
-
-            // ----- live dashboard of the session: voice, timeline, chat -----
-            Click(start.activeButton);
-            Expect(ScreenId.SessionHost, "the live session card opens the host dashboard");
-            yield return new WaitForSecondsRealtime(Mathf.Max(settle, 3f)); // a Quest starts speaking
-            yield return Shot("session_host");
-            var scroll = host.GetComponentInChildren<ScrollRect>();
-            if (scroll != null) { scroll.verticalNormalizedPosition = 0f; yield return Shot("session_host_timeline"); scroll.verticalNormalizedPosition = 1f; }
-            Click(host.textButton);
-            if (host.quickButtons.Count > 0) Click(host.quickButtons[0]);
-            yield return new WaitForSecondsRealtime(DemoConfig.ReplyDelay * 2f + 0.5f); // replies arrive
-            yield return Shot("session_text_chat");
-            Click(host.textClose);
-
-            // ----- scene of the session -----
-            Click(host.sceneButton);
-            var scene = nav.Get<SceneScreen>();
+            // ----- View in Scene: pauses the video; back returns to Control, still paused until Play -----
+            ScrollTo(control, 1f);
+            Click(control.sceneButton);
+            Expect(ScreenId.Scene, "View in Scene opens the Scene");
+            Check(!AnyPlaying(svc), "opening the Scene pauses the video");
             yield return new WaitForSecondsRealtime(DemoConfig.SceneLoadSeconds + settle);
             if (scene.Doc != null && scene.Doc.Get("cube") != null)
             {
@@ -192,59 +190,96 @@ namespace MediSimVR
             Click(scene.inspectorButton); yield return Shot("scene_inspector");
             Click(scene.objectsButton); yield return Shot("scene_objects");
             Click(scene.hierarchyClose);
-            // Select tool: no gizmo; then back to Move
             scene.toolSeg.Select(SceneScreen.SelectToolIndex, true);
             scene.Edit.UpdateGizmo();
             Check(!scene.gizmo.Visible, "Select tool hides the gizmo");
             scene.toolSeg.Select(SceneScreen.ToolIndex(GizmoTool.Move), true);
-            scene.Edit.UpdateGizmo();
-            Check(scene.gizmo.Visible, "Move tool shows the gizmo again");
-            // full view: the viewport takes the screen; Android back leaves it
             Click(scene.expandButton);
             Check(scene.FullView, "the expand button opens the full view");
             yield return Shot("scene_full_view");
             nav.Back();
             Check(!scene.FullView && nav.Current == ScreenId.Scene, "back leaves the full view and stays on Scene");
+            Click(scene.backButton);
+            Expect(ScreenId.Control, "back from the Scene returns to Control");
+            yield return new WaitForSecondsRealtime(0.6f);
+            Check(!AnyPlaying(svc), "the video stays paused until Play / Resume");
+            ScrollTo(control, 1f); yield return Shot("control_after_scene");
+            Click(control.controls.resumeButton);
+            Check(AnyPlaying(svc), "Resume continues the video after the Scene");
 
-            // ----- end -> summary -----
+            // ----- audio (sender / receiver), live voice, lesson notes, important instructions -----
+            control.questMicSwitch.Set(false, true);
+            Check(!SessionLog.QuestMics, "Quest mics can be muted");
+            control.questMicSwitch.Set(true, true);
+            control.phoneMicSwitch.Set(false, true);
+            Check(!SessionLog.PhoneMic, "the phone mic can be muted");
+            control.phoneMicSwitch.Set(true, true);
+            ScrollTo(control, 0.38f); yield return Shot("control_audio_voice");
+            control.noteInput.text = "Chest compressions: 30 per cycle, then 2 breaths";
+            Click(control.readNoteButton);
+            Check(SessionLog.Notes.Count == 1, "a lesson note is recorded and read aloud");
+            if (control.instructionButtons.Count > 0) Click(control.instructionButtons[0]);
+            Check(SessionLog.InstructionsSent.Count == 1, "an important instruction is recorded and read aloud");
+            ScrollTo(control, 0f); yield return Shot("control_notes_instructions");
+
+            // ----- the JSON session record on the phone -----
+            string json = SessionLog.Save();
+            Check(json != null && File.Exists(SessionLog.FilePath), "session record saved as JSON on the phone: " + SessionLog.FilePath);
+            Check(json != null && json.Contains("Chest compressions") && json.Contains("Put on your gloves") && json.Contains("\"events\""),
+                "the JSON has the lesson note, the instruction and the events");
+
+            // ----- live dashboard of the session: voice, timeline, chat -----
             nav.Tab(ScreenId.Session);
+            yield return Shot("session_start_live");
             Click(start.activeButton);
-            yield return new WaitForSecondsRealtime(0.3f);
+            Expect(ScreenId.SessionHost, "the live session card opens the host dashboard");
+            yield return new WaitForSecondsRealtime(Mathf.Max(settle, 2f));
+            yield return Shot("session_host");
+            var scroll = host.GetComponentInChildren<ScrollRect>();
+            if (scroll != null) { scroll.verticalNormalizedPosition = 0f; yield return Shot("session_host_timeline"); scroll.verticalNormalizedPosition = 1f; }
+            Click(host.textButton);
+            if (host.quickButtons.Count > 0) Click(host.quickButtons[0]);
+            yield return new WaitForSecondsRealtime(DemoConfig.ReplyDelay * 2f + 0.5f); // replies arrive
+            yield return Shot("session_text_chat");
+            Click(host.textClose);
+
+            // ----- end -> summary; the record goes to the PC -----
             Click(host.endButton);
             yield return new WaitForSecondsRealtime(0.3f);
-            yield return ConfirmIfAsked(null);
+            yield return ConfirmIfAsked("end_session_confirm");
+            yield return new WaitForSecondsRealtime(DemoConfig.UploadSeconds + 0.6f);
+            Check(SessionLog.UploadStatus.StartsWith("Sent to"), "the session record is sent to the PC at the end (" + SessionLog.UploadStatus + ")");
+            string endedJson = File.Exists(SessionLog.FilePath) ? File.ReadAllText(SessionLog.FilePath) : "";
+            Check(endedJson.Contains("\"sentToPc\": \"Sent to") && endedJson.Contains("\"endedAt\": \"2"),
+                "the saved record has the end time and the PC status");
             yield return Shot("session_summary");
 
-            // ----- PLAYER: straight to the Play page on My Quest -----
+            // ----- PLAYER: Send (step 1 of 2) on My Quest > Control -----
             nav.Tab(ScreenId.Session);
             Click(start.playerButton);
-            Expect(ScreenId.Play, "PLAYER opens the Play page");
-            Check(ControlFlow.IsPlayer && svc.SelectedOnline().Count == 1, "player mode acts on one Quest (My Quest)");
-            yield return Shot("play_player");
-            Click(play.changeTargetButton);
+            Expect(ScreenId.Send, "PLAYER opens the Send tab (step 1 of 2)");
+            Check(ControlFlow.IsPlayer && svc.SelectedOnline().Count == 1, "player mode sends to one Quest (My Quest)");
+            yield return Shot("player_send");
+            Click(send.changeTargetButton);
             Expect(ScreenId.SessionPlayerPick, "Change opens the My Quest list");
-            yield return Shot("player_change_quest");
+            yield return Shot("player_my_quest");
             if (pick.list.Rows.Count > 1) Click(pick.list.Rows[1].button);   // the second Quest
-            Expect(ScreenId.Play, "picking a Quest goes back to the Play page");
-            Click(play.kindSeg.buttons[(int)MediaKind.Audio]);
-            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[0]);
-            Click(play.sendButton);
+            Expect(ScreenId.Send, "picking a Quest goes back to Send");
+            yield return PickContent(send.selectButton, 1, 0, null);   // Briefing_Audio.mp3
+            Click(send.sendButton);
             yield return ConfirmIfAsked(null);
-            yield return new WaitForSecondsRealtime(DemoConfig.FakeSendSeconds + Mathf.Max(settle, 2.5f));
-            yield return Shot("play_player_audio");
+            Expect(ScreenId.Control, "Send opens Control (player)");
+            yield return new WaitForSecondsRealtime(DemoConfig.FakeSendSeconds + Mathf.Max(settle, 2f));
+            ScrollTo(control, 1f); yield return Shot("player_control");
             nav.Back();
-            Expect(ScreenId.Session, "back from the Play page goes to the Session screen (player)");
+            Expect(ScreenId.Send, "back from Control goes to Send");
+            nav.Back();
+            Expect(ScreenId.Session, "back from Send goes to the Session screen");
             nav.Back();
             Expect(ScreenId.Home, "back from the Session screen goes Home");
             yield return Shot("home_player_mode");
 
-            // ----- tabs built from the same components -----
-            nav.Tab(ScreenId.Devices); yield return Shot("devices");
-            nav.Tab(ScreenId.Send); yield return Shot("send");
-            nav.Tab(ScreenId.Control); yield return Shot("control");
-
             // ----- settings (Home header), notifications, customization -----
-            nav.Tab(ScreenId.Home);
             Click(home.settingsButton);
             Expect(ScreenId.Settings, "the Settings icon in the Home header opens Settings");
             yield return Shot("settings");
@@ -256,7 +291,7 @@ namespace MediSimVR
             Expect(ScreenId.Home, "the Settings back button goes Home");
             Click(home.bellButton); yield return Shot("notifications");
 
-            // ----- every theme preset on the new screens: Quest list + Play page (host) -----
+            // ----- every theme preset: Home, Devices, Control -----
             if (ses != null)
             {
                 if (ses.Active) ses.End();
@@ -267,9 +302,10 @@ namespace MediSimVR
             {
                 if (preset == "Custom") continue;
                 ThemeManager.Preview(ThemeData.FromPreset(preset)); // not saved
-                nav.Tab(ScreenId.Home); yield return Shot("theme_" + preset.ToLowerInvariant() + "_home");
-                nav.Tab(ScreenId.Session); nav.Push(ScreenId.QuestList); yield return Shot("theme_" + preset.ToLowerInvariant() + "_quest_list");
-                nav.Push(ScreenId.Play); yield return Shot("theme_" + preset.ToLowerInvariant() + "_play");
+                string p = "theme_" + preset.ToLowerInvariant();
+                nav.Tab(ScreenId.Home); yield return Shot(p + "_home");
+                nav.Tab(ScreenId.Devices); yield return Shot(p + "_devices");
+                nav.Tab(ScreenId.Control); ScrollTo(control, 1f); yield return Shot(p + "_control");
             }
             if (ses != null && ses.Active) ses.End();
             foreach (var d in svc.Devices) d.Selected = false;

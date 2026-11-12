@@ -60,7 +60,7 @@ namespace MediSimVR
                     State = q.State, FileId = q.FileId ?? "", Muted = q.Muted, Selected = false,
                     PositionSec = q.PositionSec
                 });
-            foreach (var f in DemoConfig.Files) Add(f.Id, f.Name, f.Kind, f.Size, f.Seconds, f.Top, f.Bottom, f.Text ?? "");
+            foreach (var f in DemoConfig.Files) Add(f.Id, f.Name, f.Kind, f.Size, f.Seconds, f.Top, f.Bottom, f.Text ?? "", f.Media);
             ControlFileId = DemoConfig.Files.Length > 0 ? DemoConfig.Files[0].Id : "";
             Note("System", "Demo mode: realistic sample data, no Quest or network needed", NoteLevel.Info);
         }
@@ -68,9 +68,10 @@ namespace MediSimVR
         // demo session changes devices (battery, leave / join): tell the screens
         public void NotifyChanged() { Fire(); }
 
-        private void Add(string id, string name, MediaKind k, long size, int sec, string top, string bottom, string text)
+        private void Add(string id, string name, MediaKind k, long size, int sec, string top, string bottom, string text, string media)
         {
-            var f = new MediaFile { Id = id, Name = name, Kind = k, SizeBytes = size, DurationSec = sec, Text = text, Source = "mock" };
+            var f = new MediaFile { Id = id, Name = name, Kind = k, SizeBytes = size, DurationSec = sec, Text = text,
+                                    Source = string.IsNullOrEmpty(media) ? "mock" : "streaming:" + media };   // sample in StreamingAssets
             if (k == MediaKind.Text) f.SizeBytes = System.Text.Encoding.UTF8.GetByteCount(text);
             ColorUtility.TryParseHtmlString(top, out f.ThumbTop);
             ColorUtility.TryParseHtmlString(bottom, out f.ThumbBottom);

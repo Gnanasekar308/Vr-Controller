@@ -55,6 +55,19 @@ namespace MediSimVR
             "Understood"
         };
 
+        // important instructions (Control tab quick buttons); the Quests read them aloud
+        public static readonly string[] Instructions =
+        {
+            "Put on your gloves",
+            "Check the airway first",
+            "Stop and look at me",
+            "Well done, continue"
+        };
+
+        // demo: the phone speaks what the Quests read aloud, so the audience hears it (off = silent)
+        public const bool SpeakOnPhone = true;
+        public const float UploadSeconds = 1.5f;   // demo "send the session record to the PC" time
+
         public static readonly string[] VoiceLines =   // shown as "Quest-XXXX: ..." in the timeline
         {
             "asked a question",
@@ -110,6 +123,9 @@ namespace MediSimVR
         public class File
         {
             public string Id, Name, Top, Bottom, Text;
+            // optional real sample for the phone preview: a path in Assets/StreamingAssets, e.g. "DemoMedia/CPR_Training.mp4"
+            // (empty = the demo file has no media; it still "plays" on the demo Quests)
+            public string Media;
             public MediaKind Kind;
             public long Size;
             public int Seconds;

@@ -1,66 +1,67 @@
 # MediSimVR phone app: 5-minute demo
 
-Demo mode is ON (Settings > Demo mode; **Settings = gear icon at the top left of Home**). Everything runs on sample
-data: no Quest, PC or Wi-Fi needed. Bottom bar: Home, Devices, Send, Control, Session, Scene.
+Demo mode is ON (Home > gear icon (Settings) > Demo mode). Everything runs on sample data: no Quest, PC or Wi-Fi needed.
+Bottom bar: **Home, Session, Devices, Send, Control** (the Scene opens from Control).
 Sample Quests: Quest-A1B2 (in use: plays Anatomy_Heart_360.mp4), Quest-C3D4, Quest-E5F6 (offline), Quest-G7H8.
-Sample Quests, files, chat messages and replies, demo texts, session colours and timings live in one file:
-`Assets/MediSimVR/Scripts/Demo/DemoConfig.cs` (screen titles and button labels are in the UI builder).
+Sample Quests, files, instructions, chat replies, demo texts and timings live in one file:
+`Assets/MediSimVR/Scripts/Demo/DemoConfig.cs`.
 
-Before you start: open the app once, so it is on the Home screen. Keep the phone in portrait.
-Back always works the same (arrow at the top left or the Android back button):
-Play page > Quest list (Host) or Session (Player) > Home.
+Before you start: close the app from recent apps and open it again (fresh session). Portrait. Phone volume up (in demo
+the phone speaks what the Quests read aloud).
+Back always works the same (arrow at the top left or the Android back button).
 
 ## 0:00 Home (15 s)
-1. Show **Home**: Settings (gear, top left) and Notifications (bell, top right), app name, **Control Mode**,
-   Receiver Mode, and the chip **"Mode: Not in a session"** with the **DEMO** badge.
-2. Say: "The phone controls every Quest headset in the training room."
+1. **Home**: Settings (gear, top left), Notifications (bell, top right), **Control Mode**, Receiver Mode, chip
+   **"Mode: Not in a session"** with the **DEMO** badge.
 
-## 0:15 Control Mode > Session (15 s)
-3. Tap **Control Mode**: the **Session** screen with two big cards:
-   **HOST** "Control all Quests in the room" and **PLAYER** "Play on your own Quest".
+## 0:15 Control Mode > Session > HOST (20 s)
+2. Tap **Control Mode**: **Session** with **HOST** "Control all Quests in the room" and **PLAYER** "Play on your own Quest".
+3. Tap **HOST**: **"Host already active"** (another phone hosts the room) > **Take over**.
 
-## 0:30 HOST > Quest list (60 s)
-4. Tap **HOST**. The message **"Host already active"** appears (another phone hosts the room). Tap **Take over**.
-5. The **Quest list**: each card shows name, battery + IP, what it plays, and a status chip:
-   **Online** (green), **Offline** (grey), **In Use** (blue, Quest-A1B2 "Playing Anatomy_Heart_360.mp4").
-6. Tap the filter chips at the top: **In Use (1)**, **Offline (1)**, back to **All (4)**.
-7. Tap **Quest-E5F6** (offline): toast "offline: it cannot be selected".
-8. Tap **Quest-A1B2** and **Quest-C3D4** (or **Select all online**). The button shows **Continue (2)**. Tap it.
+## 0:35 Step 1: Devices (45 s)
+4. The **Devices** tab opens ("Step 1 of 3"): filter chips **All / Online / Offline / In Use** with counts, Quest cards
+   with status (Online green, Offline grey, In Use blue + what plays), battery and IP.
+5. Tap **Quest-E5F6** (offline): it cannot be selected. Tap **Quest-A1B2** and **Quest-C3D4** (or **Select all online**).
+6. Tap **Connect (2)**.
 
-## 1:30 Play page as Host (90 s)
-9. The header says **"Mode: Host"**; the chip under it says **"Playing on: Quest-A1B2, Quest-C3D4"** (Change = back to the list).
-10. Tap **Video**: the sheet lists the demo videos (and Browse phone). Pick **CPR_Training.mp4**: the preview card shows it.
-11. Tap **Send & Play (2)**. Quest-A1B2 already plays another video, so the app asks **"Replace content?"**: tap **Replace**.
-12. After a second the controls appear on the same page: progress bar (time moves), **Play, Pause, Resume, Stop**, **Mute**.
-    Tap **Pause** (the time stops), then **Resume**.
-13. Tap **Image**, pick **Heart_Diagram.png**, **Send & Show**, Replace: the controls change to **Show on Quest / Hide**.
-14. Tap the back arrow: the **Quest list** now shows both Quests as **In Use** with what they show.
+## 1:20 Step 2: Send (30 s)
+7. The **Send** tab opens ("Step 2 of 3"): "Send to: Quest-A1B2, Quest-C3D4" (Change = back to Devices).
+8. **Select** > **Video** > **CPR_Training.mp4** (or **Browse phone** for a real video from this phone).
+9. **Send (2)**. Quest-A1B2 already plays a video: **Replace**.
 
-## 3:00 Live session dashboard (45 s)
-15. Back again to **Session**: the card **"Live host session"** is there. Tap it: the live dashboard
-    (**"● Recording on PC-LAB1 00:12:3x"**, live voice + who is speaking, timeline of everything you just did).
-16. Tap **Text** > **"Look at the patient"**: the Quests reply in chat bubbles after 2 to 4 seconds. Close with **X**.
-    Optional (30 s): tap **Scene**: the Live Scene viewport ("DEMO SCENE: sample objects" badge; with a real PC /
-    Quest it shows the objects of the running Unity scene). Tap the cube, drag an arrow; tap the **expand** button
-    (bottom right of the view) for the full view, Android back to leave it. Back to **Session**.
-17. Tap **End session** > **End session**: the **Summary** (duration, Quests, event counts,
-    **"Saved on PC: MediSimVR_Sessions/<date>_host.json"**).
+## 1:50 Step 3: Control (2 min)
+10. The **Control** tab opens ("Step 3 of 3"): the player card shows what plays (**ON THIS PHONE** for a file picked
+    on the phone: the video plays here too; **ON THE QUEST** for the demo samples), progress bar, **View in Scene**.
+11. **Pause** / **Resume** / **Stop** / **Mute** act on the Quests (and on this phone's preview).
+12. **View in Scene**: the video **pauses**; the Live Scene opens (DEMO SCENE badge). Tap the cube, drag an arrow, the
+    expand button = full view. Back arrow: Control again, still **paused**; **Resume** continues.
+13. Scroll down:
+    - **Audio**: This phone (sender) Sound / Mic, Quests (receivers) Sound / Mic.
+    - **Live voice** on / off and who is speaking.
+    - **Lesson notes**: type a note > **Read aloud**: the Quests read it aloud (demo: you hear it from the phone).
+    - **Important instructions**: tap **"Put on your gloves"**: read aloud on the Quests.
+    - **Session record (JSON)**: the file name on this phone.
 
-## 3:45 PLAYER (60 s)
-18. Tap **New session** (or the Session tab) > **PLAYER**: straight to the **Play page**, no list.
-    The chip says **"My Quest: Quest-A1B2"** (the last Quest used, or the first online one); header **"Mode: Player"**.
-19. Tap **Change**: pick **Quest-C3D4** (offline Quests cannot be picked): back on the Play page with "My Quest: Quest-C3D4".
-20. Tap **Audio** > **Briefing_Audio.mp3** > **Send & Play**: the audio controls + progress for that one Quest.
-21. Back > Session > Home: Home now shows **"Mode: Player • Quest-C3D4"**.
+## 3:50 End (30 s)
+14. **Session** tab > **Live host session** card: voice, chat, timeline of everything (notes and instructions too).
+15. **End session** > **End session**: the **Summary**; "Saved on this phone: MediSimVR_Sessions/<date>_host.json" and,
+    after a moment, **"Sent to PC-LAB1"**.
 
-## 4:45 Look and feel (15 s)
-22. The **Devices**, **Send** and **Control** tabs use the same Quest list, preview card and buttons.
-23. **Home** > gear icon (**Settings**) > **App Customization**: switch the theme (Default, Dark, Light, Ocean, Purple);
-    every screen follows. Back arrow > Settings > Home.
+## 4:20 PLAYER (30 s)
+16. **New session** > **PLAYER**: straight to **Send** on **My Quest** ("Step 1 of 2"); **Change** picks another Quest.
+17. Select > Audio > Briefing_Audio.mp3 > **Send**: **Control** for that one Quest.
+
+## 4:50 Look and feel (10 s)
+18. Home > gear > **App Customization**: switch the theme (Default, Dark, Light, Ocean, Purple).
+
+## The JSON session record
+- On the phone: `Android/data/com.medisim.vr/files/MediSimVR_Sessions/` (copy over USB), one file per session, saved
+  every few seconds while it runs: role, Quests, audio settings, lesson notes, important instructions, every event.
+- Sent to the PC recorder when the session ends. In demo mode this is simulated ("Sent to PC-LAB1"); the real PC
+  recorder is part of the backend.
 
 ## If something goes wrong
-- Toast "Select at least one online Quest": tap **Select all online** on the Quest list.
+- "Select at least one online Quest": tap **Select all online** on Devices.
 - To restart the demo from zero: close the app from the recent-apps list and open it again.
-- Demo mode OFF: Home > gear (Settings) > **Demo mode** > confirm. The app restarts with the real network (no sample Quests).
-  HOST / PLAYER and the Play page then use the real Quests; the live dashboard (voice, chat, timeline) needs the
-  backend and says so. Turn Demo mode ON the same way to go back.
+- Demo mode OFF: Home > gear > **Demo mode** > confirm. The app restarts with the real network. The flow is the same;
+  live voice, read-aloud on the Quests and the PC upload need the backend and say so; the JSON record stays on the phone.

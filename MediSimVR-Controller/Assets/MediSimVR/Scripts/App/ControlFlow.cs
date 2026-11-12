@@ -64,6 +64,23 @@ namespace MediSimVR
             foreach (var x in svc.Devices) x.Selected = d != null && x == d;
         }
 
+        // step line of the Control Mode flow: Host = Devices (1) > Send (2) > Control (3); Player = Send (1) > Control (2).
+        // "" outside the flow (a tab opened from the bottom bar without a role).
+        public static string Step(ScreenId id)
+        {
+            var r = Role;
+            if (r == SessionRole.None) return "";
+            bool player = r == SessionRole.Player;
+            int total = player ? 2 : 3;
+            switch (id)
+            {
+                case ScreenId.Devices: return player ? "" : "Step 1 of 3  •  Select Quests and connect";
+                case ScreenId.Send: return "Step " + (player ? 1 : 2) + " of " + total + "  •  Choose what to play";
+                case ScreenId.Control: return "Step " + total + " of " + total + "  •  Play and guide the session";
+                default: return "";
+            }
+        }
+
         // "Quest-A1B2" of the player, "" if not a player
         public static string PlayerQuestName(IControllerService svc)
         {

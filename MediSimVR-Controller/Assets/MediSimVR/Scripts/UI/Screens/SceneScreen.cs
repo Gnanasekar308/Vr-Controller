@@ -16,7 +16,7 @@ namespace MediSimVR
     {
         public TMP_Text statusText, hintText;
         public Image statusDot;
-        public Button linkButton;
+        public Button linkButton, backButton;   // back: to the screen that opened the Scene (Control)
 
         public Segmented toolSeg, spaceSeg, pivotSeg, syncSeg;
         public Button snapButton, lockButton;
@@ -118,6 +118,7 @@ namespace MediSimVR
             snapLongPress.LongPressed += PickSnapStep;
             lockButton.onClick.AddListener(ToggleLock);
             linkButton.onClick.AddListener(AskIps);
+            if (backButton != null) backButton.onClick.AddListener(() => nav.Back());
 
             undoButton.onClick.AddListener(() => { string l = doc.Undo(); if (l != null) nav.Say("Undo: " + l); });
             redoButton.onClick.AddListener(() => { string l = doc.Redo(); if (l != null) nav.Say("Redo: " + l); });
@@ -156,6 +157,7 @@ namespace MediSimVR
 
         public override void OnShow()
         {
+            PauseForScene();
             EnsureTexture();
             if (worldCamera != null) worldCamera.enabled = true;
             client.Start();
@@ -173,6 +175,23 @@ namespace MediSimVR
         {
             if (client != null) client.Dispose();
             if (rt != null) { rt.Release(); Destroy(rt); }
+        }
+
+        // opening the Scene pauses the video / audio playing on the selected Quests; it stays paused until Play / Resume
+        // on the Control tab (the phone's player follows the Quests)
+        private void PauseForScene()
+        {
+            if (Svc == null) return;
+            var playing = new List<QuestDevice>();
+            foreach (var d in Svc.SelectedOnline()) if (d.State == DeviceState.Playing) playing.Add(d);
+            if (playing.Count == 0) return;
+            var others = new List<QuestDevice>();
+            foreach (var d in Svc.Devices) if (d.Selected && !playing.Contains(d)) { others.Add(d); d.Selected = false; }
+            Svc.Pause();                                   // only the playing ones
+            foreach (var d in others) d.Selected = true;
+            SessionLog.Add(SessionEventKind.Pause, ControlFlow.IsPlayer ? ControlFlow.PlayerQuestName(Svc) : "Host",
+                "paused for the Scene (" + playing.Count + " Quest(s))");
+            nav.Say("Video paused for the Scene");
         }
 
         // full view: the viewport uses almost the whole screen (the bottom navigation stays); header, toolbars and the

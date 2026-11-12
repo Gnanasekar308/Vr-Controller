@@ -76,21 +76,27 @@ namespace MediSimVR.EditorTools
             var nav = app.AddComponent<Navigator>();
             app.AddComponent<FilePicker>();
             app.AddComponent<DemoTour>().nav = nav;   // demo screenshots (-demotour), see DemoTour
-            app.AddComponent<ContentChooser>().nav = nav;   // content picker + send, shared by Send tab and Play page
+            app.AddComponent<ContentChooser>().nav = nav;   // content picker + send, shared by the Send tab
+            // this phone's player for the Control tab; VideoPlayer + AudioSource exist in the scene, so IL2CPP keeps them
+            var phoneGo = new GameObject("PhoneVideo");
+            phoneGo.transform.SetParent(app.transform, false);
+            var phone = phoneGo.AddComponent<PhoneVideoPlayer>();
+            phone.video = phoneGo.AddComponent<UnityEngine.Video.VideoPlayer>();
+            phone.video.playOnAwake = false;
+            phone.audioSource = phoneGo.AddComponent<AudioSource>();
+            phone.audioSource.playOnAwake = false;
             root.navigator = nav;
 
             nav.screens.Add(BuildHome(screensRoot));
             nav.screens.Add(BuildDevices(screensRoot));
             nav.screens.Add(BuildSend(screensRoot));
-            nav.screens.Add(BuildControl(screensRoot));
+            nav.screens.Add(BuildControl(screensRoot, phone));
             nav.screens.Add(BuildScene(screensRoot));
             nav.screens.Add(BuildSessionStart(screensRoot));
             nav.screens.Add(BuildSessionHost(screensRoot));
             nav.screens.Add(BuildSessionPlayerPick(screensRoot));
             nav.screens.Add(BuildSessionPlayer(screensRoot));
             nav.screens.Add(BuildSessionSummary(screensRoot));
-            nav.screens.Add(BuildQuestList(screensRoot));
-            nav.screens.Add(BuildPlay(screensRoot));
             nav.screens.Add(BuildSettings(screensRoot));
             nav.screens.Add(BuildNotifications(screensRoot));
             nav.screens.Add(BuildEditApp(screensRoot));
@@ -704,6 +710,7 @@ namespace MediSimVR.EditorTools
             return s;
         }
 
+        // Devices tab = step 1 of the host flow: filter chips (with counts), select all online, Quest cards, Connect
         static AppScreen BuildDevices(Transform parent)
         {
             var s = MakeScreen<DevicesScreen>(parent, "Devices", ScreenId.Devices);
@@ -711,28 +718,26 @@ namespace MediSimVR.EditorTools
             TextMeshProUGUI title, sub;
             Button back;
             var hdr = Header(s.transform, "Devices", "Manage and connect Quest devices", false, out title, out sub, out back);
+            s.subtitleText = sub;
             s.refreshButton = CircleButton(hdr, "Refresh", "refresh", 1f, -48f, 118f);
             s.refreshIcon = (RectTransform)s.refreshButton.transform.Find("Icon");
 
-            // summary card: number of Quests + In Use chip (white card, like every other card)
-            var bar = Shape(s.transform, "Summary", ColorRole.Card, ShapeKind.Card);
-            bar.raycastTarget = false;
-            TopBand(bar.rectTransform, HeadH + 4f, 112f, Margin);
-            ShadowFor(bar.rectTransform, CardShadow);
-            var qbg = Img(bar.transform, "IconBg", circle, ColorRole.PrimarySoft);
-            qbg.raycastTarget = false;
-            Place(qbg.rectTransform, 0f, 0.5f, 76f, 76f, CardPad - 8f, 0f);
-            var qi = Icon(qbg.transform, "QuestIcon", "vr_headset", ColorRole.Primary, 46f);
-            Place(qi.rectTransform, 0.5f, 0.5f, 46f, 46f);
-            s.questsText = RowTitle(bar.transform, "Quests", "Quests (4)");
-            Stretch(s.questsText.rectTransform, 124, 0, 300, 0);
-            Image inUseDot;
-            TextMeshProUGUI inUseText;
-            var inUse = StatusChip(bar.transform, "InUse", ColorRole.Primary, "In Use (1)", 250f, out inUseDot, out inUseText);
-            s.inUseText = inUseText;
-            Place(inUse.rectTransform, 1f, 0.5f, 250f, ChipH, -CardPad + 8f, 0f);
+            var filterRow = New("FilterRow", s.transform);
+            TopBand(filterRow, HeadH + 4f, 96f, Margin);
+            VLayout(filterRow.gameObject, 0, 0);
+            s.filterSeg = Seg(filterRow, "Filter", new[] { "All (4)", "Online (2)", "Offline (1)", "In Use (1)" }, 96f, true);
 
-            s.list = DeviceList(s.transform, HeadH + 140f, 200f);
+            var selRow = New("SelectRow", s.transform);
+            TopBand(selRow, HeadH + 116f, SmallBtnH, Margin);
+            TextMeshProUGUI saLabel;
+            s.selectAllButton = Btn(selRow, "SelectAll", BtnKind.Tertiary, null, "Select all online", out saLabel);
+            Place((RectTransform)s.selectAllButton.transform, 0f, 0.5f, 340f, SmallBtnH, 0f, 0f);
+            s.selectAllLabel = saLabel;
+            s.selectedText = Secondary(selRow, "Count", "0 of 3 online selected");
+            s.selectedText.alignment = TextAlignmentOptions.MidlineRight;
+            Stretch(s.selectedText.rectTransform, 360, 0, 0, 0);
+
+            s.list = DeviceList(s.transform, HeadH + 216f, 48f + BtnH + CardGap);
 
             TextMeshProUGUI lbl;
             s.connectButton = BottomButton(s.transform, "Connect", BtnKind.Primary, "link", "Connect (2)", out lbl);
@@ -748,17 +753,27 @@ namespace MediSimVR.EditorTools
             Place(d.rectTransform, fromLeft ? 0f : 1f, 0.5f, 2f, 84f, x, 0f);
         }
 
+        // Send tab = step 2 of the host flow (1 for a player): target card, preview card, Select + Send
         static AppScreen BuildSend(Transform parent)
         {
             var s = MakeScreen<SendScreen>(parent, "Send", ScreenId.Send);
             Wave(s.transform);
             TextMeshProUGUI title, subT;
             Button backB;
-            Header(s.transform, "Send", "Send to selected Quests", false, out title, out subT, out backB);
+            Header(s.transform, "Send", "Send to the selected Quests", false, out title, out subT, out backB);
             s.subtitleText = subT;
 
-            // one preview card (a Quest shows one item at a time); same card as the Play page, 16:9 picture
-            var list = ScrollList(s.transform, "List", HeadH + 4f, 200f);
+            var list = ScrollList(s.transform, "List", HeadH + 4f, 48f + BtnH + CardGap);
+            list.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
+            // target: "Send to: ..." / "My Quest: ..." + Change
+            var chip = Panel(list, "Target", 100f);
+            var ti = Icon(chip, "Icon", "vr_headset", ColorRole.Primary, IconSize);
+            Place(ti.rectTransform, 0f, 0.5f, IconSize, IconSize, CardPad, 0f);
+            s.targetText = Txt(chip, "Target", "Send to: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            Stretch(s.targetText.rectTransform, CardPad + IconSize + 20f, 0, 236, 0);
+            s.changeTargetButton = Btn(chip, "Change", BtnKind.Tertiary, null, "Change", 72f);
+            Place((RectTransform)s.changeTargetButton.transform, 1f, 0.5f, 196f, 72f, -16f, 0f);
+            // one preview card (a Quest shows one item at a time), 16:9 picture
             var holder = New("PreviewCard", list);
             LE(holder, 880f);
             s.preview = PreviewCard(holder, "Tap Select to choose a video, audio, image or text");
@@ -825,49 +840,6 @@ namespace MediSimVR.EditorTools
             return v;
         }
 
-        static AppScreen BuildControl(Transform parent)
-        {
-            var s = MakeScreen<ControlScreen>(parent, "Control", ScreenId.Control);
-            Wave(s.transform);
-            TextMeshProUGUI title, subT;
-            Button backB;
-            Header(s.transform, "Control", "Selected: Quest-01, Quest-02", false, out title, out subT, out backB);
-            s.selectedText = subT;
-
-            // scrolls on short screens: current content card, status, controls
-            var list = ScrollList(s.transform, "List", HeadH + 4f, 20f);
-            Image card;
-            Button btn;
-            GameObject container;
-            var rt = Row(list, "FileCard", 168f, out card, out btn, out container);
-            s.fileCard = btn;
-            var thumb = Shape(rt, "Thumb", ColorRole.OnPrimary, ShapeKind.Field);
-            thumb.GetComponent<ThemedColor>().enabled = false;
-            thumb.color = Color.white;
-            thumb.raycastTarget = false;
-            s.fileThumb = Gradient(thumb, true);
-            s.fileThumb.useTheme = false;
-            Place(thumb.rectTransform, 0f, 0.5f, 184f, 112f, CardPad - 8f, 0f);
-            s.fileIcon = Icon(thumb.transform, "TypeIcon", "movie", ColorRole.OnPrimary, 52f);
-            s.fileIcon.GetComponent<ThemedColor>().enabled = false;
-            s.fileIcon.color = new Color(1f, 1f, 1f, 0.9f);
-            Place(s.fileIcon.rectTransform, 0.5f, 0.5f, 52f, 52f);
-            s.videoIcon = IconS("movie");
-            s.audioIcon = IconS("music_note");
-            s.imageIcon = IconS("image");
-            s.textIcon = IconS("article");
-            var cl = SmallLabel(rt, "Caption", "NOW CONTROLLING");
-            TopLeft(cl.rectTransform, 236f, 22f, 100f, 40f);
-            s.fileName = RowTitle(rt, "Name", "Nature_01.mp4");
-            TopLeft(s.fileName.rectTransform, 236f, 58f, 100f, 52f);
-            s.fileInfo = Secondary(rt, "Info", "Video");
-            TopLeft(s.fileInfo.rectTransform, 236f, 108f, 100f, 44f);
-            Chevron(rt);
-
-            s.controls = ControlsBig(list);   // same controls component as the Play page
-            return s;
-        }
-
         // "Live Scene" v2: status chip, tool + option rows, 3D view (SyncWorld far from the UI, rendered to a RenderTexture)
         // with Undo / Redo / Reset and Top / Front / Side / 3D / Focus, bottom bar (Objects, Inspector, Live / On release),
         // Objects (hierarchy) and Inspector bottom sheets.
@@ -878,7 +850,8 @@ namespace MediSimVR.EditorTools
             TextMeshProUGUI title, subT;
             Button backB;
             // header: title + Link (manual IPs); the connection status chip sits in the subtitle line
-            var hdr = Header(s.transform, "Live Scene", "", false, out title, out subT, out backB);
+            var hdr = Header(s.transform, "Live Scene", "", true, out title, out subT, out backB);
+            s.backButton = backB;   // back to the Control tab (the Scene opens from there)
             s.linkButton = CircleButton(hdr, "Link", "link", 1f, -48f, 118f);
             s.chrome.Add(hdr.gameObject);
 
@@ -1489,10 +1462,11 @@ namespace MediSimVR.EditorTools
             var items = New("Items", bar.transform);
             Stretch(items, 12, 10, 12, 10);
             HLayout(items.gameObject, 8);
-            // six tabs; Settings opens from the Home header
-            string[] labels = { "Home", "Devices", "Send", "Control", "Session", "Scene" };
-            string[] icons = { "home", "vr_headset", "send", "tune", "cast_connected", "view_in_ar" };
-            ScreenId[] ids = { ScreenId.Home, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Session, ScreenId.Scene };
+            // five tabs in flow order (Home > Session > Devices > Send > Control); Settings opens from the Home header, the
+            // Scene from the Control tab
+            string[] labels = { "Home", "Session", "Devices", "Send", "Control" };
+            string[] icons = { "home", "cast_connected", "vr_headset", "send", "tune" };
+            ScreenId[] ids = { ScreenId.Home, ScreenId.Session, ScreenId.Devices, ScreenId.Send, ScreenId.Control };
             for (int i = 0; i < labels.Length; i++)
             {
                 var hit = Img(items, labels[i], null, ColorRole.Card, 0f);

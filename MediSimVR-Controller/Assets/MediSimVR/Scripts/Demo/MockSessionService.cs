@@ -15,7 +15,7 @@ namespace MediSimVR
         private readonly List<ChatMessage> chat = new List<ChatMessage>();
         private readonly System.Random rnd = new System.Random(7);
         private readonly List<KeyValuePair<float, ChatMessage>> pendingReplies = new List<KeyValuePair<float, ChatMessage>>();
-        private float elapsed, recording, voiceTimer, batteryTimer;
+        private float elapsed, recording, voiceTimer, batteryTimer, uploadClock;
         private bool leftDone, rejoinDone, otherHost = DemoConfig.SimulateOtherHost;
         private string speaking = "";
 
@@ -37,7 +37,12 @@ namespace MediSimVR
         public string RecorderName { get { return DemoConfig.RecorderName; } }
         public bool LiveVoice { get; set; } = true;
         public bool MicMuted { get; set; }
+        public bool PhoneSound { get; set; } = true;
+        public bool QuestMics { get; set; } = true;
         public string SpeakingDeviceId { get { return Active && LiveVoice ? speaking : ""; } }
+        public IReadOnlyList<string> Instructions { get { return DemoConfig.Instructions; } }
+
+        private readonly List<KeyValuePair<float, Action>> pendingUploads = new List<KeyValuePair<float, Action>>();
         public bool OtherHostActive { get { return otherHost; } }
         public string OtherHostText { get { return DemoConfig.HostActiveText; } }
         public IReadOnlyList<SessionEvent> Timeline { get { return timeline; } }
@@ -119,6 +124,30 @@ namespace MediSimVR
             Fire();
         }
 
+        // demo: the Quests "read aloud"; the phone speaks the text so the presenter hears it (DemoConfig.SpeakOnPhone)
+        public void Speak(SessionEventKind kind, string text, List<QuestDevice> to)
+        {
+            text = (text ?? "").Trim();
+            if (text.Length == 0 || to == null || to.Count == 0) return;
+            var names = new List<string>();
+            foreach (var d in to) names.Add(d.Name);
+            string who = Role == SessionRole.Player ? (to.Count > 0 ? to[0].Name : "Player") : "Host";
+            Add(kind, who, (kind == SessionEventKind.Instruction ? "important instruction" : "lesson note") +
+                " read aloud on " + string.Join(", ", names.ToArray()) + ": \"" + text + "\"");
+            if (DemoConfig.SpeakOnPhone && PhoneSound) PhoneSpeech.Say(text);
+            Fire();
+        }
+
+        // demo: the PC recorder "receives" the record after a short delay (nothing is sent)
+        public void Upload(string fileName, string json, Action<bool, string> done)
+        {
+            float at = uploadClock + DemoConfig.UploadSeconds;
+            pendingUploads.Add(new KeyValuePair<float, Action>(at, () =>
+            {
+                if (done != null) done(true, "Sent to " + DemoConfig.RecorderName + ": MediSimVR_Sessions/" + fileName);
+            }));
+        }
+
         public void Log(SessionEventKind kind, string device, string message)
         {
             if (!Active) return;
@@ -140,6 +169,15 @@ namespace MediSimVR
 
         public void Tick(float dt)
         {
+            // uploads finish also after the session ended (the record is sent at the end)
+            uploadClock += dt;
+            for (int i = pendingUploads.Count - 1; i >= 0; i--)
+            {
+                if (uploadClock < pendingUploads[i].Key) continue;
+                var a = pendingUploads[i].Value;
+                pendingUploads.RemoveAt(i);
+                a();
+            }
             if (!Active) return;
             elapsed += dt;
             if (Recording) recording += dt;
@@ -169,7 +207,7 @@ namespace MediSimVR
                 {
                     var talkers = new List<QuestDevice>();
                     foreach (var d in devices.Devices)
-                        if (d.Online && !d.Muted && (Role == SessionRole.Host || d.Id != PlayerDeviceId)) talkers.Add(d);
+                        if (QuestMics && d.Online && !d.Muted && (Role == SessionRole.Host || d.Id != PlayerDeviceId)) talkers.Add(d);
                     if (talkers.Count > 0)
                     {
                         var t = talkers[rnd.Next(talkers.Count)];
@@ -180,7 +218,7 @@ namespace MediSimVR
                 }
                 changed = true;
             }
-            if (!LiveVoice && speaking.Length > 0) { speaking = ""; changed = true; }
+            if ((!LiveVoice || !QuestMics) && speaking.Length > 0) { speaking = ""; changed = true; }   // voice off or Quest mics off
 
             // one Quest drops out and comes back (host sessions)
             bool devChanged = false;

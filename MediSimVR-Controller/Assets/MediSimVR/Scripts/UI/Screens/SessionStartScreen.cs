@@ -5,8 +5,8 @@ using UnityEngine.UI;
 namespace MediSimVR
 {
     // Session screen (Home > Control Mode, or the Session tab): HOST and PLAYER cards.
-    //   HOST   -> Quest list -> Play page ("Host already active" message first in demo mode)
-    //   PLAYER -> Play page on "My Quest" (no list)
+    //   HOST   -> Devices (select + Connect) -> Send -> Control ("Host already active" message first in demo mode)
+    //   PLAYER -> Send on "My Quest" (no list) -> Control
     // A running session shows a card that opens its live dashboard (voice, chat, timeline). Up: Home.
     public class SessionStartScreen : AppScreen
     {
@@ -41,15 +41,15 @@ namespace MediSimVR
 
         private void Host()
         {
-            if (Ses == null) { ControlFlow.StartLocalHost(); nav.Push(ScreenId.QuestList); return; }
-            if (Ses.Active && Ses.Role == SessionRole.Host) { nav.Push(ScreenId.QuestList); return; }
+            if (Ses == null) { ControlFlow.StartLocalHost(); nav.Push(ScreenId.Devices); return; }
+            if (Ses.Active && Ses.Role == SessionRole.Host) { nav.Push(ScreenId.Devices); return; }
             if (Ses.Active) { Switch("Switch to Host?", "This ends your player session.", Host); return; }
-            if (Ses.StartHost(false)) { nav.Push(ScreenId.QuestList); return; }
+            if (Ses.StartHost(false)) { nav.Push(ScreenId.Devices); return; }
             // another phone is hosting (demo shows this once)
             nav.popup.Show(DemoConfig.HostActiveTitle, Ses.OtherHostText, "Take over", () =>
             {
                 Ses.StartHost(true);
-                nav.Push(ScreenId.QuestList);
+                nav.Push(ScreenId.Devices);
             }, "Cancel");
         }
 
@@ -59,7 +59,7 @@ namespace MediSimVR
             var q = ControlFlow.MyQuest(Svc);
             if (q == null || !q.Online) { nav.Say("No Quest is online"); return; }
             ControlFlow.UsePlayerQuest(Svc, q);
-            nav.Push(ScreenId.Play);
+            nav.Push(ScreenId.Send);
         }
 
         private void Switch(string title, string text, System.Action again)

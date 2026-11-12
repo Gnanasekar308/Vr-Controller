@@ -4,7 +4,8 @@ using System.Collections.Generic;
 namespace MediSimVR
 {
     public enum SessionRole { None, Host, Player }
-    public enum SessionEventKind { Play, Pause, Stop, Content, Text, Voice, Join, Leave, Object, Mute, Info }
+    // new kinds go at the end (TimelineRowView has one icon per kind, in this order)
+    public enum SessionEventKind { Play, Pause, Stop, Content, Text, Voice, Join, Leave, Object, Mute, Info, Note, Instruction, Audio }
 
     public class SessionEvent
     {
@@ -48,8 +49,12 @@ namespace MediSimVR
         string RecorderName { get; }
 
         bool LiveVoice { get; set; }
-        bool MicMuted { get; set; }
+        bool MicMuted { get; set; }             // this phone's (sender) microphone
+        bool PhoneSound { get; set; }           // this phone's (sender) sound: voices, read-aloud, preview
+        bool QuestMics { get; set; }            // the Quests' (receiver) microphones
         string SpeakingDeviceId { get; }        // "" = nobody
+
+        IReadOnlyList<string> Instructions { get; }      // important instructions (quick buttons)
 
         bool OtherHostActive { get; }           // "Host already active" (another phone hosts the room)
         string OtherHostText { get; }
@@ -62,6 +67,10 @@ namespace MediSimVR
         void StartPlayer(string deviceId);
         SessionSummary End();
         void SendText(string text, List<QuestDevice> to);
+        // a lesson note (kind Note) or an important instruction (kind Instruction) the Quests read aloud
+        void Speak(SessionEventKind kind, string text, List<QuestDevice> to);
+        // send the session record (JSON) to the PC; done(ok, message) on the main thread
+        void Upload(string fileName, string json, Action<bool, string> done);
         void Log(SessionEventKind kind, string device, string message);
         void Tick(float dt);
     }

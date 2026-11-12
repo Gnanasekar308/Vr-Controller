@@ -182,14 +182,15 @@ namespace MediSimVR.EditorTools
             var card = Shape(cell, "Card", ColorRole.Card, ShapeKind.Card);
             Stretch(card.rectTransform);
             var b = MakeButton(card.gameObject, card);
-            float cs = big ? 128f : 54f, isz = big ? 76f : 32f;
+            // big (212 high): circle 24..128, label 136..194; small (110-120 high): circle 8..62, label below it
+            float cs = big ? 104f : 54f, isz = big ? 60f : 32f;
             var c = Img(card.transform, "Circle", circle, role);
             c.raycastTarget = false;
-            Place(c.rectTransform, 0.5f, 1f, cs, cs, 0f, big ? -32f : -8f);
+            Place(c.rectTransform, 0.5f, 1f, cs, cs, 0f, big ? -24f : -8f);
             var ic = Icon(c.transform, "Icon", icon, ColorRole.OnPrimary, isz);
             Place(ic.rectTransform, 0.5f, 0.5f, isz, isz);
             var t = Txt(card.transform, "Label", label, big ? TextRole.Button : TextRole.Small, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            BottomBand(t.rectTransform, big ? 24f : 2f, big ? 58f : TextBoxH(TextRole.Small), 6f);
+            BottomBand(t.rectTransform, big ? 18f : 2f, big ? TextBoxH(TextRole.Button) : TextBoxH(TextRole.Small), 6f);
             return b;
         }
 

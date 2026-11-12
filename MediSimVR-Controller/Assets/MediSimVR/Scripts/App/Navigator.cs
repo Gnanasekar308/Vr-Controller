@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace MediSimVR
 {
     public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp, Scene,
-        Session, SessionHost, SessionPlayerPick, SessionPlayer, SessionSummary, QuestList, Play } // new ids go at the end
+        Session, SessionHost, SessionPlayerPick, SessionPlayer, SessionSummary } // new ids go at the end
 
     [Serializable]
     public class NavItem
@@ -96,7 +96,9 @@ namespace MediSimVR
         void Highlight()
         {
             // Notifications and Settings (+ Edit App) open from the Home header: Home stays highlighted
+            // the Scene opens from the Control tab: Control stays highlighted
             ScreenId tab = current == ScreenId.Notifications || current == ScreenId.Settings || current == ScreenId.EditApp ? ScreenId.Home
+                : current == ScreenId.Scene ? ScreenId.Control
                 : current >= ScreenId.Session ? ScreenId.Session : current;
             foreach (var n in navItems)
             {

@@ -40,7 +40,7 @@ namespace MediSimVR
             sceneButton.onClick.AddListener(() =>
             {
                 var d = Quest();
-                nav.Tab(ScreenId.Scene);
+                nav.Push(ScreenId.Scene);   // back returns here
                 var scene = nav.Get<SceneScreen>();
                 if (scene != null && d != null) scene.ShowFor(d.Name);
             });

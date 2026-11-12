@@ -269,6 +269,7 @@ namespace MediSimVR.EditorTools
             TopBand(s.devicesText.rectTransform, 244f, 60f, 48f);
             Label(card, "Events", 326f);
             s.countsText = BodyText(card, "Counts", "");
+            s.countsText.richText = true;   // two columns (<pos>)
             s.countsText.enableWordWrapping = true;
             s.countsText.overflowMode = TextOverflowModes.Overflow;
             s.countsText.alignment = TextAlignmentOptions.TopLeft;
@@ -429,7 +430,7 @@ namespace MediSimVR.EditorTools
             v.messageText.richText = true;
             Stretch(v.messageText.rectTransform, 230, 0, 20, 0);
             // icon per SessionEventKind: Play, Pause, Stop, Content, Text, Voice, Join, Leave, Object, Mute, Info
-            foreach (var n in new[] { "play_arrow", "pause", "stop", "send", "article", "volume_up", "check", "close", "view_in_ar", "volume_off", "info" })
+            foreach (var n in new[] { "play_arrow", "pause", "stop", "send", "article", "volume_up", "check", "close", "view_in_ar", "volume_off", "info", "text_snippet", "warning", "volume_up" })   // + Note, Instruction, Audio
                 v.kindIcons.Add(IconS(n));
             r.gameObject.SetActive(false);
             return v;

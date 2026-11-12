@@ -99,6 +99,40 @@ public class MQGallery {
         }
     }
 
+    // Copies a picked file (content:// uri) to 'path' on a background thread (videos can be large) and answers
+    // "OK\t<path>" or "ERR\t<path>\t<message>" to gameObject.method (the path tells which request it answers). Used for the phone's video preview: Unity's VideoPlayer
+    // cannot read content:// uris. An existing complete copy is reused.
+    public static void copyToFile(final String uri, final String path, final String gameObject, final String method) {
+        new Thread(new Runnable() {
+            public void run() {
+                java.io.InputStream in = null;
+                java.io.OutputStream out = null;
+                try {
+                    java.io.File f = new java.io.File(path);
+                    if (f.exists() && f.length() > 0) { UnityPlayer.UnitySendMessage(gameObject, method, "OK\t" + path); return; }
+                    java.io.File dir = f.getParentFile();
+                    if (dir != null) dir.mkdirs();
+                    java.io.File part = new java.io.File(path + ".part");
+                    in = UnityPlayer.currentActivity.getContentResolver().openInputStream(Uri.parse(uri));
+                    if (in == null) throw new java.io.IOException("cannot open " + uri);
+                    out = new java.io.FileOutputStream(part);
+                    byte[] buf = new byte[262144];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    out.close();
+                    out = null;
+                    if (!part.renameTo(f)) throw new java.io.IOException("cannot rename the copy");
+                    UnityPlayer.UnitySendMessage(gameObject, method, "OK\t" + path);
+                } catch (Throwable t) {
+                    UnityPlayer.UnitySendMessage(gameObject, method, "ERR\t" + path + "\t" + t.getMessage());
+                } finally {
+                    try { if (in != null) in.close(); } catch (Throwable ignored) { }
+                    try { if (out != null) out.close(); } catch (Throwable ignored) { }
+                }
+            }
+        }).start();
+    }
+
     // Returns a detached fd (owned by the caller) or -1.
     public static int openFd(String uri) {
         try {

@@ -224,7 +224,7 @@ namespace MediSimVR
             var l = Svc.SelectedOnline();
             string name = l.Count == 1 ? l[0].Name : "";
             Ses.Log(SessionEventKind.Info, "Host", "opened the Scene" + (name.Length > 0 ? " of " + name : ""));
-            nav.Tab(ScreenId.Scene);
+            nav.Push(ScreenId.Scene);   // back returns here
             var scene = nav.Get<SceneScreen>();
             if (scene != null) scene.ShowFor(name);
         }

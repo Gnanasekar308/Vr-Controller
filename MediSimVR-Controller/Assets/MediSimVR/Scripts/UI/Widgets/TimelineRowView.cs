@@ -29,6 +29,7 @@ namespace MediSimVR
                 case SessionEventKind.Leave: return ThemeManager.Get(ColorRole.Danger);
                 case SessionEventKind.Join: return ThemeManager.Get(ColorRole.Success);
                 case SessionEventKind.Mute: return ThemeManager.Get(DemoConfig.MutedRole);
+                case SessionEventKind.Instruction: return ThemeManager.Get(ColorRole.Warning);   // important
                 default: return ThemeManager.Get(ColorRole.Primary);
             }
         }
