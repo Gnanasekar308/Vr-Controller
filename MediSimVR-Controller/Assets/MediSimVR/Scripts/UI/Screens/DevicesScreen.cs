@@ -8,8 +8,8 @@ namespace MediSimVR
     {
         public Button refreshButton, connectButton;
         public RectTransform refreshIcon;
-        public DeviceRowView rowTemplate;
-        public TMP_Text questsText, inUseText, connectLabel, emptyText;
+        public DeviceListView list;
+        public TMP_Text questsText, inUseText, connectLabel;
 
         public override void Init(Navigator n)
         {
@@ -33,22 +33,10 @@ namespace MediSimVR
         public override void Refresh()
         {
             int inUse = 0;
-            foreach (var d in Svc.Devices) if (DeviceRowView.InUse(d)) inUse++;
+            foreach (var d in Svc.Devices) if (DeviceStatus.InUse(d)) inUse++;
             questsText.text = "Quests (" + Svc.Devices.Count + ")";
             inUseText.text = "In Use (" + inUse + ")";
-
-            var rows = Fill(rowTemplate, Svc.Devices.Count);
-            for (int i = 0; i < rows.Count; i++)
-            {
-                var d = Svc.Devices[i];
-                rows[i].Bind(d, () =>
-                {
-                    if (!d.Online) { nav.Say(d.Name + " is offline"); return; }
-                    d.Selected = !d.Selected;
-                    Refresh();
-                });
-            }
-            emptyText.gameObject.SetActive(Svc.Devices.Count == 0);
+            list.Show(Svc.Devices, Svc, d => { if (DeviceListView.ToggleSelect(d, nav)) Refresh(); }, "No devices");
             connectLabel.text = "Connect (" + Svc.SelectedOnline().Count + ")";
         }
     }

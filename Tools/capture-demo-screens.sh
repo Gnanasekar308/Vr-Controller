@@ -17,10 +17,12 @@ sleep 2
 echo "app started with -demotour, waiting for the tour..."
 
 count=0
+finished=0
 while IFS= read -r line; do
     line="${line%$'\r'}"
     case "$line" in
         *"DEMO-TOUR done"*)
+            finished=1
             echo "tour finished: $count screenshots in $OUT"
             break ;;
         *"[MediSimVR] DEMO-TOUR "[0-9][0-9]" "*)
@@ -31,4 +33,11 @@ while IFS= read -r line; do
             count=$((count + 1))
             echo "$num $name" ;;
     esac
-done < <(timeout 300 "$ADB" -s "$SERIAL" logcat -v brief -s Unity:I)
+done < <(timeout 600 "$ADB" -s "$SERIAL" logcat -v time -s Unity:I | tee "$OUT/tour_unity_log.txt")
+# tour_unity_log.txt = the whole Unity log of the tour (I / W / E), kept even when the phone's log buffer rotates
+
+# no "DEMO-TOUR done" line (adb lost the phone, app crashed, timeout): the screenshots are incomplete
+if [ "$finished" -ne 1 ]; then
+    echo "TOUR NOT FINISHED: only $count screenshots (see $OUT/tour_unity_log.txt)" >&2
+    exit 1
+fi

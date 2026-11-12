@@ -4,7 +4,10 @@ using UnityEngine.UI;
 
 namespace MediSimVR
 {
-    // Session tab start: HOST and PLAYER cards; a running session card; "Host already active" message (demo).
+    // Session screen (Home > Control Mode, or the Session tab): HOST and PLAYER cards.
+    //   HOST   -> Quest list -> Play page ("Host already active" message first in demo mode)
+    //   PLAYER -> Play page on "My Quest" (no list)
+    // A running session shows a card that opens its live dashboard (voice, chat, timeline). Up: Home.
     public class SessionStartScreen : AppScreen
     {
         public TMP_Text modeText, activeText;
@@ -16,14 +19,9 @@ namespace MediSimVR
         public override void Init(Navigator n)
         {
             base.Init(n);
-            hostButton.onClick.AddListener(StartHost);
-            playerButton.onClick.AddListener(() =>
-            {
-                if (Ses == null) { nav.Say("Session backend not connected yet"); return; }
-                if (Ses.Active) { OpenActive(); return; }
-                nav.Push(ScreenId.SessionPlayerPick);
-            });
-            activeButton.onClick.AddListener(OpenActive);
+            hostButton.onClick.AddListener(Host);
+            playerButton.onClick.AddListener(Player);
+            activeButton.onClick.AddListener(OpenDashboard);
         }
 
         protected override void OnEnable()
@@ -40,20 +38,35 @@ namespace MediSimVR
 
         private void OnSession() { if (isActiveAndEnabled) Refresh(); }
 
-        private void StartHost()
+        private void Host()
         {
-            if (Ses == null) { nav.Say("Session backend not connected yet"); return; }
-            if (Ses.Active) { OpenActive(); return; }
-            if (Ses.StartHost(false)) { nav.Push(ScreenId.SessionHost); return; }
+            if (Ses == null) { ControlFlow.StartLocalHost(); nav.Push(ScreenId.QuestList); return; }
+            if (Ses.Active && Ses.Role == SessionRole.Host) { nav.Push(ScreenId.QuestList); return; }
+            if (Ses.Active) { Switch("Switch to Host?", "This ends your player session.", Host); return; }
+            if (Ses.StartHost(false)) { nav.Push(ScreenId.QuestList); return; }
             // another phone is hosting (demo shows this once)
             nav.popup.Show(DemoConfig.HostActiveTitle, Ses.OtherHostText, "Take over", () =>
             {
                 Ses.StartHost(true);
-                nav.Push(ScreenId.SessionHost);
+                nav.Push(ScreenId.QuestList);
             }, "Cancel");
         }
 
-        private void OpenActive()
+        private void Player()
+        {
+            if (Ses != null && Ses.Active && Ses.Role == SessionRole.Host) { Switch("Switch to Player?", "This ends the host session.", Player); return; }
+            var q = ControlFlow.MyQuest(Svc);
+            if (q == null || !q.Online) { nav.Say("No Quest is online"); return; }
+            ControlFlow.UsePlayerQuest(Svc, q);
+            nav.Push(ScreenId.Play);
+        }
+
+        private void Switch(string title, string text, System.Action again)
+        {
+            nav.popup.Show(title, text, "Switch", () => { Ses.End(); again(); }, "Cancel");
+        }
+
+        private void OpenDashboard()
         {
             if (Ses == null || !Ses.Active) return;
             nav.Push(Ses.Role == SessionRole.Host ? ScreenId.SessionHost : ScreenId.SessionPlayer);
@@ -61,16 +74,10 @@ namespace MediSimVR
 
         public static string ModeLine(bool withDemo = false)
         {
-            var s = AppRoot.Session;
-            string mode;
-            if (s == null || !s.Active) mode = DemoConfig.ModeNone;
-            else if (s.Role == SessionRole.Host) mode = DemoConfig.ModeHost;
-            else
-            {
-                string q = s.PlayerDeviceId;
-                if (AppRoot.Service != null) foreach (var d in AppRoot.Service.Devices) if (d.Id == s.PlayerDeviceId) q = d.Name;
-                mode = DemoConfig.ModePlayer + "  •  " + q;
-            }
+            var role = ControlFlow.Role;
+            string mode = role == SessionRole.Host ? DemoConfig.ModeHost
+                : role == SessionRole.Player ? DemoConfig.ModePlayer + "  •  " + ControlFlow.PlayerQuestName(AppRoot.Service)
+                : DemoConfig.ModeNone;
             return "Mode: " + mode + (withDemo && AppRoot.Demo ? "  •  " + DemoConfig.DemoBadge : "");
         }
 
@@ -82,8 +89,8 @@ namespace MediSimVR
             bool active = Ses != null && Ses.Active;
             activeCard.SetActive(active);
             if (active)
-                activeText.text = (Ses.Role == SessionRole.Host ? "Host session running" : "Player session running") +
-                                  "  •  " + Fmt.Clock(Ses.Elapsed) + "\nTap to open";
+                activeText.text = (Ses.Role == SessionRole.Host ? "Live host session" : "Live player session") +
+                                  "  •  " + Fmt.Clock(Ses.Elapsed) + "\n" + DemoConfig.DashboardHint;
         }
 
         private float nextTick;

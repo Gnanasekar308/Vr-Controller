@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace MediSimVR
 {
     public enum ScreenId { Home, Devices, Send, Control, Settings, Notifications, EditApp, Scene,
-        Session, SessionHost, SessionPlayerPick, SessionPlayer, SessionSummary } // new ids go at the end
+        Session, SessionHost, SessionPlayerPick, SessionPlayer, SessionSummary, QuestList, Play } // new ids go at the end
 
     [Serializable]
     public class NavItem
@@ -71,7 +71,11 @@ namespace MediSimVR
             if (actionSheet != null && actionSheet.root.activeSelf) { actionSheet.Hide(); return; }
             if (popup != null && popup.root.activeSelf) { popup.Hide(); return; }
             if (colorPicker != null && colorPicker.root.activeSelf) { colorPicker.root.SetActive(false); return; }
-            foreach (var s in screens) if (s.id == current && s.HandleBack()) return; // e.g. a sheet open on the screen
+            var cur = Find(current);
+            if (cur != null && cur.HandleBack()) return; // e.g. a sheet open on the screen
+            // Control Mode flow: fixed way up (Play page -> Quest list (host) / Session (player) -> Home), however it was reached
+            ScreenId parent;
+            if (cur != null && cur.TryGetParent(out parent)) { back.Clear(); Show(parent); return; }
             if (back.Count > 0) { Show(back.Pop()); return; }
             if (current != ScreenId.Home) { Show(ScreenId.Home); return; }
             Application.Quit();
@@ -111,6 +115,12 @@ namespace MediSimVR
         public T Get<T>() where T : AppScreen
         {
             foreach (var s in screens) if (s is T) return (T)s;
+            return null;
+        }
+
+        AppScreen Find(ScreenId id)
+        {
+            foreach (var s in screens) if (s.id == id) return s;
             return null;
         }
     }

@@ -14,7 +14,7 @@ namespace MediSimVR
         {
             base.Init(n);
             bellButton.onClick.AddListener(() => nav.Push(ScreenId.Notifications));
-            controlModeButton.onClick.AddListener(() => nav.Tab(ScreenId.Devices));
+            controlModeButton.onClick.AddListener(() => nav.Push(ScreenId.Session));   // Control Mode flow: Session > HOST / PLAYER
             receiverModeButton.onClick.AddListener(() => nav.popup.Show("Receiver Mode",
                 "Receiver Mode runs inside the Meta Quest app (MQ Receiver). Install it on each Quest; this phone app controls them.",
                 "OK"));

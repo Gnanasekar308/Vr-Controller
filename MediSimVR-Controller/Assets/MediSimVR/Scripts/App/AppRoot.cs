@@ -19,6 +19,7 @@ namespace MediSimVR
         {
             Demo = DemoConfig.Enabled;
             Debug.Log("[MediSimVR] AppRoot.Awake, demo mode " + (Demo ? "ON" : "OFF"));
+            ControlFlow.Reset();
             // data first: nothing below may leave the app without a service
             if (Demo)
             {

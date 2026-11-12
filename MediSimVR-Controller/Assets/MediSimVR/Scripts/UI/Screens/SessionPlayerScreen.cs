@@ -108,7 +108,7 @@ namespace MediSimVR
             questName.text = d.Name;
             statusDot.color = d.Online ? ThemeManager.Get(ColorRole.Accent) : ThemeManager.Get(ColorRole.SubText);
             statusText.text = d.Online ? "Online  •  " + (d.Battery >= 0 ? d.Battery + "% battery" : "battery --") + (d.Muted ? "  •  muted" : "") : "Offline";
-            contentText.text = QuestCardView.Content(d, Svc);
+            contentText.text = DeviceStatus.Content(d, Svc);
             muteLabel.text = d.Muted ? "Unmute" : "Mute";
             bool live = Ses != null && Ses.LiveVoice;
             voiceSwitch.Set(live, false);

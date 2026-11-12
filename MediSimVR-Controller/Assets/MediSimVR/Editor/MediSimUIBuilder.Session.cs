@@ -169,11 +169,10 @@ namespace MediSimVR.EditorTools
             Wave(s.transform);
             TextMeshProUGUI title, sub;
             Button back;
-            Header(s.transform, "Join as Player", "Pick your Quest", true, out title, out sub, out back);
+            Header(s.transform, "My Quest", "Tap your online Quest to play on it", true, out title, out sub, out back);
             s.backButton = back;
             s.hintText = sub;
-            var list = ScrollList(s.transform, "List", HeadH + 10f, 20f);
-            s.cardTemplate = QuestCard(list, false);
+            s.list = DeviceList(s.transform, HeadH + 10f, 20f);   // same list as the Devices tab
             return s;
         }
 
@@ -431,7 +430,7 @@ namespace MediSimVR.EditorTools
             Place(ti.rectTransform, 0.5f, 0.5f, 62f, 62f);
             float x1 = x0 + 124f;
             v.nameText = Txt(rt, "Name", "Quest", TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
-            TopLeft(v.nameText.rectTransform, x1, 16f, 136f, 60f);
+            TopLeft(v.nameText.rectTransform, x1, 10f, 136f, 70f);   // taller than one line also at text size L
             v.statusDot = Img(rt, "Dot", circle, ColorRole.Accent);
             v.statusDot.GetComponent<ThemedColor>().enabled = false;
             v.statusDot.raycastTarget = false;

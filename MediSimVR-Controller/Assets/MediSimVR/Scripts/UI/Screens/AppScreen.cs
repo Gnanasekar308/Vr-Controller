@@ -31,7 +31,7 @@ namespace MediSimVR
         public abstract void Refresh();
 
         // like Fill, but keeps the existing clones (no flicker / garbage when a list refreshes often); the caller rebinds them
-        protected static List<T> Keep<T>(T template, List<T> cache, int count) where T : Component
+        public static List<T> Keep<T>(T template, List<T> cache, int count) where T : Component
         {
             cache.RemoveAll(x => x == null);
             while (cache.Count > count)
@@ -51,6 +51,9 @@ namespace MediSimVR
 
         // Android back: true = handled here (e.g. a sheet was closed), false = go back a screen
         public virtual bool HandleBack() { return false; }
+
+        // fixed "up" screen of the Control Mode flow (Play page -> Quest list / Session); false = use the back stack
+        public virtual bool TryGetParent(out ScreenId parent) { parent = ScreenId.Home; return false; }
 
         // clone list rows from an inactive template; keeps the template itself
         protected static List<T> Fill<T>(T template, int count) where T : Component

@@ -57,7 +57,8 @@ namespace MediSimVR
                 devices.Add(new QuestDevice
                 {
                     Id = q.Id, Name = q.Name, Ip = q.Ip, Online = q.Online, Connected = q.Online, Battery = q.Battery,
-                    State = q.State, FileId = q.FileId ?? "", Muted = q.Muted, Selected = q.Online
+                    State = q.State, FileId = q.FileId ?? "", Muted = q.Muted, Selected = false,
+                    PositionSec = q.PositionSec
                 });
             foreach (var f in DemoConfig.Files) Add(f.Id, f.Name, f.Kind, f.Size, f.Seconds, f.Top, f.Bottom, f.Text ?? "");
             ControlFileId = DemoConfig.Files.Length > 0 ? DemoConfig.Files[0].Id : "";
@@ -153,6 +154,7 @@ namespace MediSimVR
             foreach (var d in SelectedOnline())
             {
                 d.FileId = sending.Id;
+                d.PositionSec = 0f;
                 bool visual = sending.Kind == MediaKind.Text || sending.Kind == MediaKind.Image;
                 d.State = visual ? DeviceState.ShowingText : DeviceState.Playing;   // one item per Quest: replaces the old one
                 Note(d.Name, (visual ? "Showing " : "Playing ") + sending.Name, NoteLevel.Success);
@@ -177,12 +179,17 @@ namespace MediSimVR
         {
             var f = ControlFile;
             if (f == null) { Note("System", "Choose a file first", NoteLevel.Warning); Fire(); return; }
-            ForSelected("Playing " + f.Name, d => { d.FileId = f.Id; d.State = DeviceState.Playing; });
+            ForSelected("Playing " + f.Name, d =>
+            {
+                if (d.FileId != f.Id || d.State == DeviceState.Stopped) d.PositionSec = 0f;   // new file / after Stop: from the start
+                d.FileId = f.Id;
+                d.State = DeviceState.Playing;
+            });
         }
 
         public void Pause() { ForSelected("Paused", d => d.State = DeviceState.Paused); }
         public void Resume() { ForSelected("Resumed", d => d.State = DeviceState.Playing); }
-        public void Stop() { ForSelected("Stopped", d => d.State = DeviceState.Stopped); }
+        public void Stop() { ForSelected("Stopped", d => { d.State = DeviceState.Stopped; d.PositionSec = 0f; }); }
         public void SetMute(bool mute) { ForSelected(mute ? "Muted" : "Unmuted", d => d.Muted = mute); }
 
         public void ShowText()
@@ -226,6 +233,27 @@ namespace MediSimVR
                 Fire();
             }
             if (sending != null && (sendLeft -= dt) <= 0f) FinishSend();
+            AdvancePlayback(dt);
+        }
+
+        // playing video / audio moves on; at the end the Quest stops (the screens read PositionSec themselves)
+        private void AdvancePlayback(float dt)
+        {
+            bool ended = false;
+            foreach (var d in devices)
+            {
+                if (!d.Online || d.State != DeviceState.Playing) continue;
+                MediaFile f = null;
+                foreach (var x in files) if (x.Id == d.FileId) f = x;
+                if (f == null || f.DurationSec <= 0 || f.Kind == MediaKind.Text || f.Kind == MediaKind.Image) continue;
+                d.PositionSec += dt;
+                if (d.PositionSec < f.DurationSec) continue;
+                d.PositionSec = 0f;
+                d.State = DeviceState.Stopped;
+                Note(d.Name, "Finished " + f.Name, NoteLevel.Info);
+                ended = true;
+            }
+            if (ended) Fire();
         }
     }
 }

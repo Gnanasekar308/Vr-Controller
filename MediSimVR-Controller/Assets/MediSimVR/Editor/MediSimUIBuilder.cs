@@ -76,6 +76,7 @@ namespace MediSimVR.EditorTools
             var nav = app.AddComponent<Navigator>();
             app.AddComponent<FilePicker>();
             app.AddComponent<DemoTour>().nav = nav;   // demo screenshots (-demotour), see DemoTour
+            app.AddComponent<ContentChooser>().nav = nav;   // content picker + send, shared by Send tab and Play page
             root.navigator = nav;
 
             nav.screens.Add(BuildHome(screensRoot));
@@ -88,6 +89,8 @@ namespace MediSimVR.EditorTools
             nav.screens.Add(BuildSessionPlayerPick(screensRoot));
             nav.screens.Add(BuildSessionPlayer(screensRoot));
             nav.screens.Add(BuildSessionSummary(screensRoot));
+            nav.screens.Add(BuildQuestList(screensRoot));
+            nav.screens.Add(BuildPlay(screensRoot));
             nav.screens.Add(BuildSettings(screensRoot));
             nav.screens.Add(BuildNotifications(screensRoot));
             nav.screens.Add(BuildEditApp(screensRoot));
@@ -755,12 +758,7 @@ namespace MediSimVR.EditorTools
             s.inUseText = Txt(bar.transform, "InUse", "In Use (1)", TextRole.Body, ColorRole.OnPrimary, TextWeight.SemiBold, TextAlignmentOptions.MidlineRight);
             Place(s.inUseText.rectTransform, 1f, 0.5f, 220f, 80f, -48f, 0f);
 
-            var list = ScrollList(s.transform, "List", HeadH + 156f, 260f);
-            s.rowTemplate = DeviceRow(list);
-            s.rowTemplate.gameObject.SetActive(false);
-            s.emptyText = Txt(s.transform, "Empty", "No devices", TextRole.Body, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            TopBand(s.emptyText.rectTransform, 760f, 80f);
-            s.emptyText.gameObject.SetActive(false);
+            s.list = DeviceList(s.transform, HeadH + 156f, 260f);
 
             TextMeshProUGUI lbl;
             s.connectButton = GradientButton(s.transform, "Connect", "link", "Connect (2)", out lbl, true);
@@ -770,67 +768,6 @@ namespace MediSimVR.EditorTools
             s.connectButton.GetComponent<ThemedShape>().pillHeight = 124f;
             ShadowFor((RectTransform)s.connectButton.transform, 0.30f, ColorRole.Primary);
             return s;
-        }
-
-        static DeviceRowView DeviceRow(Transform list)
-        {
-            Image card;
-            Button btn;
-            GameObject container;
-            var rt = Row(list, "DeviceRow", 176f, out card, out btn, out container);
-            var v = container.AddComponent<DeviceRowView>();
-            v.button = btn;
-            v.boxFilled = round;
-            v.boxOutline = outline;
-            v.checkBox = Img(rt, "CheckBox", round, ColorRole.Primary);
-            v.checkBox.type = Image.Type.Sliced;
-            v.checkBox.pixelsPerUnitMultiplier = 64f / 12f;   // 12 px corner radius
-            v.checkBox.GetComponent<ThemedColor>().enabled = false;
-            v.checkBox.gameObject.AddComponent<CanvasGroup>();
-            Place(v.checkBox.rectTransform, 0f, 0.5f, 60f, 60f, 36f, 0f);
-            v.checkMark = Icon(v.checkBox.transform, "Tick", "check", ColorRole.OnPrimary, 46f);
-            Place(v.checkMark.rectTransform, 0.5f, 0.5f, 46f, 46f);
-            if (headset != null)
-            {
-                var hs = Img(rt, "Headset", headset, ColorRole.OnPrimary);
-                hs.preserveAspect = true;
-                hs.raycastTarget = false;
-                Place(hs.rectTransform, 0f, 0.5f, 150f, 94f, 116f, 0f);
-            }
-            Divider(rt, 290f, true);
-            v.nameText = Txt(rt, "Name", "Quest-01", TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
-            v.nameText.rectTransform.anchorMin = new Vector2(0, 0.5f);
-            v.nameText.rectTransform.anchorMax = new Vector2(1, 1);
-            v.nameText.rectTransform.offsetMin = new Vector2(320, -6);
-            v.nameText.rectTransform.offsetMax = new Vector2(-270, -16);
-            v.ipText = Txt(rt, "Ip", "192.168.1.25", TextRole.Caption, ColorRole.SubText);
-            v.ipText.rectTransform.anchorMin = new Vector2(0, 0);
-            v.ipText.rectTransform.anchorMax = new Vector2(1, 0.5f);
-            v.ipText.rectTransform.offsetMin = new Vector2(320, 18);
-            v.ipText.rectTransform.offsetMax = new Vector2(-270, -6);
-            Divider(rt, -262f, false);
-
-            var status = New("Status", rt);
-            Place(status, 1f, 0.5f, 230f, 60f, -24f, 0f);
-            v.statusLine = status;
-            v.statusDot = Img(status, "Dot", circle, ColorRole.Accent);
-            v.statusDot.raycastTarget = false;
-            v.statusDot.GetComponent<ThemedColor>().enabled = false;
-            Place(v.statusDot.rectTransform, 0f, 0.5f, 24f, 24f, 22f, 0f);
-            v.statusText = Txt(status, "Text", "Online", TextRole.Body, ColorRole.Accent, TextWeight.SemiBold);
-            v.statusText.GetComponent<ThemedText>().applyColor = false;
-            Stretch(v.statusText.rectTransform, 64, 0, 0, 0);
-
-            var badge = Shape(rt, "InUse", ColorRole.Accent, ShapeKind.Pill, 0.18f);
-            badge.raycastTarget = false;
-            badge.GetComponent<ThemedShape>().pillHeight = 58f;
-            Place(badge.rectTransform, 1f, 0.5f, 200f, 58f, -36f, -34f);
-            var bi = Icon(badge.transform, "Icon", "play_arrow", ColorRole.Accent, 40f);
-            Place(bi.rectTransform, 0f, 0.5f, 40f, 40f, 22f, 0f);
-            var bt = Txt(badge.transform, "Label", "In Use", TextRole.Caption, ColorRole.Accent, TextWeight.SemiBold);
-            Stretch(bt.rectTransform, 72, 0, 10, 0);
-            v.inUseBadge = badge.gameObject;
-            return v;
         }
 
         // thin vertical divider inside a row; x >= 0 from the left, x < 0 from the right
@@ -848,101 +785,14 @@ namespace MediSimVR.EditorTools
             TextMeshProUGUI title, subT;
             Button backB;
             Header(s.transform, "Send", "Send to selected Quests", false, out title, out subT, out backB);
-            s.videoIcon = IconS("movie");
-            s.audioIcon = IconS("music_note");
-            s.imageIcon = IconS("image");
-            s.textIcon = IconS("article");
 
-            // one preview card (a Quest shows one item at a time)
+            // one preview card (a Quest shows one item at a time); same card as the Play page
             var holder = New("PreviewCard", s.transform);
             holder.anchorMin = new Vector2(0, 0);
             holder.anchorMax = new Vector2(1, 1);
             holder.offsetMin = new Vector2(40, 250);
             holder.offsetMax = new Vector2(-40, -(HeadH + 10f));
-            ShadowInside(holder, 0.10f);
-            var card = Shape(holder, "Card", ColorRole.Card, ShapeKind.Card);
-            Stretch(card.rectTransform);
-
-            // ---- filled
-            var filled = New("Filled", card.transform);
-            Stretch(filled);
-            s.filledGroup = filled.gameObject;
-            var prev = Shape(filled, "Preview", ColorRole.OnPrimary, ShapeKind.Field);
-            prev.GetComponent<ThemedColor>().enabled = false;
-            prev.color = Color.white;
-            prev.raycastTarget = false;
-            s.previewBackground = Gradient(prev, true);
-            s.previewBackground.useTheme = false;
-            prev.rectTransform.anchorMin = new Vector2(0, 0);
-            prev.rectTransform.anchorMax = new Vector2(1, 1);
-            prev.rectTransform.offsetMin = new Vector2(32, 300);
-            prev.rectTransform.offsetMax = new Vector2(-32, -32);
-            prev.gameObject.AddComponent<RectMask2D>();
-            s.previewImage = Img(prev.transform, "Picture", null, ColorRole.OnPrimary);
-            s.previewImage.GetComponent<ThemedColor>().enabled = false;
-            s.previewImage.color = Color.white;
-            s.previewImage.preserveAspect = true;
-            s.previewImage.raycastTarget = false;
-            Stretch(s.previewImage.rectTransform);
-            s.previewIcon = Img(prev.transform, "TypeIcon", IconS("movie"), ColorRole.OnPrimary);
-            s.previewIcon.GetComponent<ThemedColor>().enabled = false;
-            s.previewIcon.color = new Color(1f, 1f, 1f, 0.92f);
-            s.previewIcon.preserveAspect = true;
-            s.previewIcon.raycastTarget = false;
-            Place(s.previewIcon.rectTransform, 0.5f, 0.5f, 180f, 180f);
-            var paper = New("TextPaper", prev.transform);
-            Stretch(paper, 28, 28, 28, 28);
-            var paperBg = Shape(paper, "Bg", ColorRole.Card, ShapeKind.Field);
-            Stretch(paperBg.rectTransform);
-            paperBg.raycastTarget = false;
-            s.previewText = Txt(paper, "Text", "", TextRole.Body, ColorRole.Text, TextWeight.Regular, TextAlignmentOptions.TopLeft);
-            s.previewText.enableWordWrapping = true;
-            s.previewText.overflowMode = TextOverflowModes.Ellipsis;
-            Stretch(s.previewText.rectTransform, 32, 28, 32, 28);
-            s.textPaper = paper.gameObject;
-            paper.gameObject.SetActive(false);
-            var badge = Shape(prev.transform, "DurationBadge", ColorRole.Text, ShapeKind.Pill, 0.75f);
-            badge.GetComponent<ThemedColor>().enabled = false;
-            badge.color = new Color(0f, 0f, 0f, 0.55f);
-            badge.raycastTarget = false;
-            Place(badge.rectTransform, 0f, 0f, 130f, 50f, 20f, 20f);
-            s.badge = badge.gameObject;
-            s.badgeText = Txt(badge.transform, "Time", "05:30", TextRole.Caption, ColorRole.OnPrimary, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Stretch(s.badgeText.rectTransform);
-
-            s.nameText = Txt(filled, "Name", "Nature_01.mp4", TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
-            BottomBand(s.nameText.rectTransform, 200f, 72f, 40f);
-            s.infoText = Txt(filled, "Info", "Video  \u2022  245 MB  \u2022  05:30", TextRole.Caption, ColorRole.SubText);
-            BottomBand(s.infoText.rectTransform, 150f, 52f, 40f);
-            var actions = New("Actions", filled);
-            BottomBand(actions, 32f, 96f, 32f);
-            var ah = HLayout(actions.gameObject, 20);
-            ah.childForceExpandWidth = false;
-            ah.childAlignment = TextAnchor.MiddleLeft;
-            s.changeButton = SmallAction(actions, "Change", "swap_horiz", "Change", ColorRole.Primary, 250f);
-            s.editButton = SmallAction(actions, "Edit", "edit", "Edit", ColorRole.Primary, 210f);
-            s.removeButton = SmallAction(actions, "Remove", "close", "Remove", ColorRole.Danger, 250f);
-
-            // ---- empty
-            var empty = New("Empty", card.transform);
-            Stretch(empty);
-            s.emptyGroup = empty.gameObject;
-            var ring = Img(empty, "Dashed", outline, ColorRole.Divider);
-            ring.type = Image.Type.Sliced;
-            ring.raycastTarget = false;
-            var rsh = ring.gameObject.AddComponent<ThemedShape>();
-            rsh.kind = ShapeKind.Card;
-            Stretch(ring.rectTransform, 32, 32, 32, 32);
-            var ec = Img(empty, "Circle", circle, ColorRole.PrimarySoft);
-            ec.raycastTarget = false;
-            Place(ec.rectTransform, 0.5f, 0.5f, 170f, 170f, 0f, 110f);
-            var ei = Icon(ec.transform, "Icon", "add", ColorRole.Primary, 90f);
-            Place(ei.rectTransform, 0.5f, 0.5f, 90f, 90f);
-            var et = Txt(empty, "Title", "No file selected", TextRole.Header, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Place(et.rectTransform, 0.5f, 0.5f, 800f, 80f, 0f, -40f);
-            var es = Txt(empty, "Hint", "Tap Select to choose a video, audio, image or text", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            Place(es.rectTransform, 0.5f, 0.5f, 860f, 60f, 0f, -110f);
-            empty.gameObject.SetActive(false);
+            s.preview = PreviewCard(holder, "Tap Select to choose a video, audio, image or text");
 
             // ---- bottom buttons
             var bar = New("BottomBar", s.transform);
@@ -1074,50 +924,7 @@ namespace MediSimVR.EditorTools
             Stretch(s.fileInfo.rectTransform, 240, 22, 100, 86);
             Chevron(card.transform);
 
-            // video / audio controls
-            var media = New("MediaControls", s.transform);
-            Stretch(media);
-            s.mediaControls = media.gameObject;
-            var grid = New("Buttons", media);
-            TopBand(grid, HeadH + 220f, 640f);
-            var g = grid.gameObject.AddComponent<GridLayoutGroup>();
-            g.cellSize = new Vector2(484f, 306f);
-            g.spacing = new Vector2(32f, 28f);
-            g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            g.constraintCount = 2;
-            g.childAlignment = TextAnchor.UpperCenter;
-            s.playButton = Tile(grid, "Play", "play_arrow", ColorRole.Accent);
-            s.pauseButton = Tile(grid, "Pause", "pause", ColorRole.Primary);
-            s.resumeButton = Tile(grid, "Resume", "replay", ColorRole.Primary);
-            s.stopButton = Tile(grid, "Stop", "stop", ColorRole.Primary);
-            var mute = Shape(media, "MuteRow", ColorRole.Card, ShapeKind.Card);
-            TopBand(mute.rectTransform, HeadH + 890f, 150f);
-            ShadowFor(mute.rectTransform);
-            var mi = Icon(mute.transform, "Icon", "volume_off", ColorRole.Text, 64f);
-            Place(mi.rectTransform, 0f, 0.5f, 64f, 64f, 40f, 0f);
-            var mt = Txt(mute.transform, "Label", "Mute", TextRole.Body, ColorRole.Text, TextWeight.SemiBold);
-            Stretch(mt.rectTransform, 140, 0, 220, 0);
-            s.muteSwitch = Switch(mute.transform, "MuteSwitch");
-            Place((RectTransform)s.muteSwitch.transform, 1f, 0.5f, 120f, 68f, -40f, 0f);
-
-            // text controls
-            var textC = New("TextControls", s.transform);
-            Stretch(textC);
-            s.textControls = textC.gameObject;
-            var tgrid = New("Buttons", textC);
-            TopBand(tgrid, HeadH + 220f, 310f);
-            var tg = tgrid.gameObject.AddComponent<GridLayoutGroup>();
-            tg.cellSize = new Vector2(484f, 306f);
-            tg.spacing = new Vector2(32f, 28f);
-            tg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            tg.constraintCount = 2;
-            tg.childAlignment = TextAnchor.UpperCenter;
-            s.showButton = Tile(tgrid, "Show on Quest", "visibility", ColorRole.Accent);
-            s.hideButton = Tile(tgrid, "Hide", "visibility_off", ColorRole.Primary);
-            textC.gameObject.SetActive(false);
-
-            s.stateText = Txt(s.transform, "State", "", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            TopBand(s.stateText.rectTransform, HeadH + 1060f, 60f);
+            s.controls = ControlsBig(s.transform);   // same controls component as the Play page
             return s;
         }
 

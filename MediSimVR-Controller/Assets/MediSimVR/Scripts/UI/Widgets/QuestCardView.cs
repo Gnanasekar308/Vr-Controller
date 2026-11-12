@@ -38,20 +38,5 @@ namespace MediSimVR
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => { if (onTap != null) onTap(); });
         }
-
-        // "Playing Anatomy_Heart_360.mp4", "Paused ...", "Idle"
-        public static string Content(QuestDevice d, IControllerService svc)
-        {
-            string file = "";
-            foreach (var f in svc.Files) if (f.Id == d.FileId) file = f.Name;
-            switch (d.State)
-            {
-                case DeviceState.Playing: return "Playing " + file;
-                case DeviceState.Paused: return "Paused  " + file;
-                case DeviceState.Stopped: return "Stopped  " + file;
-                case DeviceState.ShowingText: return "Showing " + file;
-                default: return file.Length > 0 ? "Ready: " + file : "Idle";
-            }
-        }
     }
 }

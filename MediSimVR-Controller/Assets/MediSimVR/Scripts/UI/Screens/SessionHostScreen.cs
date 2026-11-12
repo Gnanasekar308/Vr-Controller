@@ -132,7 +132,7 @@ namespace MediSimVR
             for (int i = 0; i < cards.Count; i++)
             {
                 var d = Svc.Devices[i];
-                cards[i].Bind(d, QuestCardView.Content(d, Svc), d.Id == Ses.SpeakingDeviceId, true, () =>
+                cards[i].Bind(d, DeviceStatus.Content(d, Svc), d.Id == Ses.SpeakingDeviceId, true, () =>
                 {
                     if (!d.Online) { nav.Say(d.Name + " is offline"); return; }
                     d.Selected = !d.Selected;

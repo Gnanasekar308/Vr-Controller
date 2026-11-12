@@ -5,24 +5,20 @@ using UnityEngine.UI;
 
 namespace MediSimVR
 {
+    // One Quest in the Devices tab and in the Session Quest list: select box, name, battery + IP, what it plays,
+    // status chip Online (green) / Offline (grey) / In Use (blue).
     public class DeviceRowView : MonoBehaviour
     {
         public Button button;
-        public Image checkBox, checkMark, statusDot;
-        public TMP_Text nameText, ipText, statusText;
-        public RectTransform statusLine;
-        public GameObject inUseBadge;
+        public Image checkBox, checkMark, statusChip, statusDot;
+        public TMP_Text nameText, infoText, contentText, statusText;
         public Sprite boxFilled, boxOutline;
 
-        public static bool InUse(QuestDevice d)
-        {
-            return d.Online && (d.State == DeviceState.Playing || d.State == DeviceState.Paused || d.State == DeviceState.ShowingText);
-        }
-
-        public void Bind(QuestDevice d, Action onTap)
+        public void Bind(QuestDevice d, string content, Action onTap)
         {
             nameText.text = d.Name;
-            ipText.text = d.Ip.Length > 0 ? d.Ip : "\u2014";
+            infoText.text = DeviceStatus.Battery(d) + "  •  " + (d.Ip.Length > 0 ? d.Ip : "—");
+
             bool sel = d.Selected && d.Online;
             checkBox.sprite = sel ? boxFilled : boxOutline;
             checkBox.color = sel ? ThemeManager.Get(ColorRole.Primary) : ThemeManager.Get(ColorRole.SubText);
@@ -30,13 +26,15 @@ namespace MediSimVR
             var cg = checkBox.GetComponent<CanvasGroup>();
             if (cg != null) cg.alpha = d.Online ? 1f : 0.35f;
 
-            Color sc = d.Online ? ThemeManager.Get(ColorRole.Accent) : ThemeManager.Get(ColorRole.SubText);
-            statusText.text = d.Online ? "Online" : "Offline";
-            statusText.color = sc;
-            statusDot.color = sc;
-            bool use = InUse(d);
-            inUseBadge.SetActive(use);
-            statusLine.anchoredPosition = new Vector2(statusLine.anchoredPosition.x, use ? 30f : 0f);
+            var st = DeviceStatus.Of(d);
+            Color c = DeviceStatus.Tint(st);
+            statusText.text = DeviceStatus.Label(st);
+            statusText.color = c;
+            statusDot.color = c;
+            statusChip.color = new Color(c.r, c.g, c.b, 0.15f);
+            contentText.text = st == QuestState.InUse ? content : st == QuestState.Online ? "Ready" : "Not connected";
+            contentText.color = st == QuestState.InUse ? c : ThemeManager.Get(ColorRole.SubText);
+
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => { if (onTap != null) onTap(); });
         }

@@ -19,6 +19,7 @@ namespace MediSimVR
         public string FileId = "";
         public bool Selected;
         public bool Muted;
+        public float PositionSec;   // playback position of video / audio (demo: moves while playing; real: 0 until reported)
     }
 
     // A file the phone can send to the Quest: video, audio or text.

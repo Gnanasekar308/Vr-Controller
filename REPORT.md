@@ -1,125 +1,162 @@
 # REPORT
 
 ## Task
-Demo-only day: the phone app must run a 5-minute demo on realistic mock data; the real backend (Quest receiver,
-voice, PC recorder) belongs to another developer and is connected tomorrow.
-1. Stop backend work: the parked backend code (M4 WIP: signed beacon check, `Net.IsVr`) is committed on the branch
-   `backend-paused` (`7ce7c11`, pushed); work continues on `main`. The receiver repo was not touched.
-2. Demo mode, default ON, switch in Settings (the app reloads): 4 Quests (Quest-A1B2, Quest-C3D4, Quest-E5F6 offline,
-   Quest-G7H8) with battery, playing state, simulated speaking and text replies. The UI talks only to service interfaces:
-   `IControllerService` (existing) + new `ISessionService`, so the real backend replaces the mocks without UI changes.
-3. New "Session" tab (built by MediSimUIBuilder, same style): HOST / PLAYER start cards; Host dashboard (Quest cards with
-   online, battery, content, animated speaking icon, muted icon, select one / several / all; Play, Pause, Resume, Stop,
-   Send content, Text, Mute, Open in Scene; voice bar with live voice switch, Mute me, who is speaking; text sheet with
-   quick messages and chat bubbles with Quest replies; "Recording on PC-LAB1 00:12:34" chip; live session timeline of
-   every action incl. object moves, text, voice, join / leave; "Host already active" demo message; End session ->
-   summary with duration, devices, event counts, "Saved on PC: MediSimVR_Sessions/<date>_host.json"). Player: pick one
-   Quest -> single-Quest screen (status, play controls, voice, Open in Scene, Leave). Current mode on Home and in the
-   Session headers.
-4. Demo ready: every tab works in demo mode, all theme presets; build + install on ZA223HXPHV; logcat; screenshots of
-   every main screen in `demo-screens/`; `DEMO.md` = 5-minute click-by-click script.
-5. Quick changes: the demo data and demo-only texts (mock Quests / files, quick messages, Quest replies, voice lines,
-   "Host already active" text, recorder name, saved-file path, mode labels), the session colours and all timings are in
-   `DemoConfig.cs`. Generic screen titles and button labels stay in `MediSimUIBuilder` / the screen scripts.
+New app flow, UI only (demo mode / mock data, no backend), built by MediSimUIBuilder in the same style:
+1. Home > **Control Mode** opens the **Session** screen.
+2. Session: two big cards, **HOST** "Control all Quests in the room" and **PLAYER** "Play on your own Quest".
+3. HOST > **Quest list**: cards with name, status chip Online (green) / Offline (grey) / In Use (blue, with what plays),
+   battery; filter chips All / Online / Offline / In Use with counts; offline cannot be selected; select one / several /
+   **Select all online**; **Continue (n)** > Play page for the selected Quests.
+4. PLAYER > straight to the **Play page** on "My Quest" (last used, else the first online one); chip
+   "My Quest: Quest-XXXX" with **Change**.
+5. **Play page** (same for both): target in the header area ("Playing on: ..." / "My Quest: ..."); pick content
+   Video / Audio / Image / Text (Send picker + preview card reused); **Send & Play** / **Send & Show**; then the controls
+   of that type on the same page: Play, Pause, Resume, Stop, Mute, progress bar (video / audio) or Show on Quest, Hide
+   (image / text). The Quests switch to In Use in the Quest list after playing (mock).
+6. Back: Play page > Quest list (host) or Session (player) > Home, the same with the Android back button. The mode
+   (Host / Player) shows in the headers and on Home.
+- Keep the existing tabs working; reuse the Devices list, Send picker and Control buttons as components. Demo mode ON
+  by default with the 4 mock Quests (one offline, one in use).
+- Finish: build + install on ZA223HXPHV (the user allowed: uninstall the old app, install the new one), logcat,
+  screenshots of the new screens in `demo-screens/`, DEMO.md updated.
 
 ## Files changed (phone repo)
-- New `Scripts/Demo/`: `DemoConfig.cs` (all demo values), `MockSessionService.cs` (ISessionService mock: host / player,
-  recording clock, speaking turns, text replies, one Quest leaves and rejoins, battery drain, timeline, summary),
-  `DemoSceneLink.cs` (Scene tab without network: demo objects, demo Quests as targets), `DemoTour.cs` (MonoBehaviour:
-  walks through every screen + theme preset when started with `-demotour`, used for screenshots and the smoke test).
-- New `Scripts/Core/ISessionService.cs` (interface + SessionRole / SessionEvent / ChatMessage / SessionSummary),
-  `Scripts/SceneSync/ISceneLink.cs` (Scene tab link interface; `SceneSyncClient` implements it, adds `TargetNames`).
-- New screens: `SessionStartScreen.cs`, `SessionHostScreen.cs`, `SessionPlayerPickScreen.cs`, `SessionPlayerScreen.cs`,
-  `SessionSummaryScreen.cs`; new widgets: `QuestCardView.cs`, `TimelineRowView.cs`, `ChatBubbleView.cs`, `SpeakingPulse.cs`
-  (each MonoBehaviour in its own file).
-- Changed: `AppRoot.cs` (picks mock or real services by demo mode, ticks the session, `SetDemoAndRestart`),
-  `MockControllerService.cs` (Quests / files from DemoConfig, `NotifyChanged`), `Navigator.cs` (Session screen ids,
-  Session tab highlight, `Get<T>()`, screen back handling), `AppScreen.cs` (`Keep()` row reuse, `HandleBack()`),
-  `Models.cs` (`Fmt.Clock`), `HomeScreen.cs` (mode chip + DEMO badge), `SettingsScreen.cs` (Demo mode row),
-  `SceneScreen.cs` (uses `ISceneLink`; demo link in demo mode; "Open in Scene" for one Quest; object moves go to the
-  session timeline), `OrbitCameraRig.cs` (focus uses the narrower field of view: a portrait view is narrow sideways),
-  `ThemeManager.cs` (`Preview()`: apply a theme without saving it; used by the demo tour).
-- UI builder: `Editor/MediSimUIBuilder.cs` (now `partial`; 7 tabs incl. Session; Home mode chip; Settings Demo row;
-  `DemoTour` on the App object; inactive object with Box / Sphere / Capsule colliders so the IL2CPP build keeps them),
-  new `Editor/MediSimUIBuilder.Session.cs` (all Session screens). `Scenes/Main.unity` regenerated by the builder.
-- Tests: new `Editor/DemoSmokeTest.cs` (batchmode, demo ON, runs DemoTour, counts errors); `Editor/SceneSimTest.cs`
-  (forces demo mode OFF while it runs, restores it).
-- `DEMO.md`, `Tools/capture-demo-screens.sh` (adb screenshots of the tour), `.gitignore` (+ `demo-screens/`).
+- New shared components (each MonoBehaviour in its own file):
+  - `Scripts/UI/Widgets/DeviceListView.cs`: the Devices list (rows kept between refreshes, empty text, shared
+    "tap = select, offline cannot be selected" rule). Used by the Devices tab, the Quest list and the My Quest list.
+  - `Scripts/UI/Widgets/MediaPreviewView.cs`: the Send tab preview card (picture / icon / text paper, badge, name, info,
+    Change / Edit / Remove). Used by the Send tab and the Play page.
+  - `Scripts/UI/Widgets/PlaybackControlsView.cs`: Play / Pause / Resume / Stop / Mute or Show / Hide, state line,
+    optional progress bar; `Acted` event for the session timeline. Used by the Control tab (big tiles) and the Play page
+    (compact row + progress).
+  - `Scripts/App/ContentChooser.cs` (on the App object): type sheet > files of that type in the app (demo files, earlier
+    picks) or Browse phone (Android picker) or Write text; edit text; send with the "Replace content?" question. The only
+    listener of the file picker (a picked file is added once). Used by the Send tab and the Play page.
+- New non-MonoBehaviour helpers: `Scripts/UI/Widgets/DeviceStatus.cs` (Online / Offline / In Use, colours, "Playing ..."
+  text, battery text; replaces `DeviceRowView.InUse` and `QuestCardView.Content`), `Scripts/App/ControlFlow.cs` (role of
+  the flow: from the session service when there is one, else kept locally; My Quest in PlayerPrefs `msvr_my_quest`).
+- New screens: `QuestListScreen.cs` (ScreenId.QuestList), `PlayScreen.cs` (ScreenId.Play).
+- Changed screens: `HomeScreen` (Control Mode > Session), `SessionStartScreen` (HOST > Quest list, PLAYER > Play page,
+  role switch asks first, live session card > dashboard, `ModeLine` via ControlFlow), `SessionPlayerPickScreen` (now the
+  "Change My Quest" list, built from DeviceListView), `DevicesScreen` / `SendScreen` / `ControlScreen` (use the shared
+  components).
+- `DeviceRowView.cs`: card redesigned (battery + IP line, what plays, status chip); `QuestCardView.cs`: `Content` moved.
+- `Navigator.cs`: ScreenIds `QuestList`, `Play` appended; Back uses a screen's fixed parent
+  (`AppScreen.TryGetParent`) before the back stack. `AppScreen.cs`: `TryGetParent`, `Keep` is public.
+- Data: `Models.cs` (`QuestDevice.PositionSec`), `MockControllerService.cs` (Quests start unselected; playback position
+  moves while playing, resets on new file / Stop / send; Quest stops at the end of the file), `DemoConfig.cs` (card texts,
+  dashboard hint, Quest-C3D4 now idle = one in use, start position of Quest-A1B2, new demo image Heart_Diagram.png),
+  `AppRoot.cs` (resets ControlFlow on start).
+- UI builder: `MediSimUIBuilder.cs` (Devices / Send / Control use the shared builders, 15 screens, ContentChooser on the
+  App object), new `MediSimUIBuilder.Flow.cs` (Quest list, Play page, DeviceList / DeviceRow, PreviewCard, ControlsBig,
+  ControlsCompact), `MediSimUIBuilder.Session.cs` (My Quest list). `Scenes/Main.unity` regenerated.
+- `DemoTour.cs`: walks the new flow, presses the app's own buttons, checks every back step and the offline rule (a failed
+  check is an error, so the smoke test fails on it); themes on the Quest list + Play page.
+- `Tools/capture-demo-screens.sh` (logcat wait 600 s for the longer tour; the tour's whole Unity log is saved as
+  `demo-screens/tour_unity_log.txt`, because the phone's log buffer dropped the first lines in run 1), `DEMO.md`
+  (new 5-minute script).
 
 ## Tested + real results
-- Backend parked: branch `backend-paused` = `7ce7c11`, pushed to origin; `main` continues from `0cb329e`.
-- Editor smoke test (batchmode, `MediSimVR.EditorTools.DemoSmokeTest`, demo ON, UI rebuilt, Play mode, full DemoTour):
-  `[MediSimVR] UI scene built ... screens 13, tabs 7` and `[DEMO-TEST] RESULT screens 35, errors 0  -> PASSED`.
-- Scene Play-mode test (batchmode `SceneSimTest`, demo forced OFF so the real SceneSync path is tested):
-  `[SIM-TEST] RESULT 82 passed, 0 failed  -> ALL PASSED`.
-- APK build (batchmode `PhoneBuild.Build`): `Build result: Succeeded`, `MediSimVR-Controller/Builds/MediSimVR-Controller.apk`
-  16,309,454 bytes.
-- Install on ZA223HXPHV: `adb install -r` -> `Success`, `lastUpdateTime=2026-11-10 19:27:19` (app data kept, no uninstall).
-  (One earlier install attempt failed only because the script used the wrong APK path; it was rerun with the right path.)
-- Phone run (`am start -S -W ... -e unity "-demotour"`, then `adb logcat -d`, app pid 25624):
-  - `[MediSimVR] AppRoot.Awake, demo mode ON`
-  - `[MediSimVR] Demo scene loaded (6 objects)`
-  - `[MediSimVR] DEMO-TOUR done 35 screens`
-  - 0 lines `not a Unity engine type` (the previous phone build logged
-    `AddComponent asking for "SphereCollider" which is not a Unity engine type` = IL2CPP stripped the collider, so the
-    sphere could not be tapped; fixed by the inactive KeepColliderTypes object in the builder).
-  - 0 exceptions from the app. Only the usual GPU driver start-up probe lines (`qdgralloc` / `Gralloc4` format 59) at launch.
-- Screenshots: 35 phone screenshots in `demo-screens/` (git-ignored): 01_home, 02_devices, 03_send, 04_control,
-  05_session_start, 06_session_host_already_active, 07_session_host, 08_session_host_timeline, 09_session_send_content,
-  10_session_text_chat, 11_scene, 12_scene_inspector, 13_scene_objects, 14_session_host_after_scene, 15_session_summary,
-  16_session_player_pick, 17_session_player, 18_settings, 19_edit_app, 20_notifications, 21-35 = Default / Dark / Light /
-  Ocean / Purple theme x (Home, Host, Scene). Checked by eye: every screen renders, texts fit, all 5 theme presets apply.
-- Scene framing (found on the first phone run: the portrait view cut the objects at the sides): fixed in
-  `OrbitCameraRig.Focus` (uses the horizontal field of view when the view is portrait); `11_scene.png` of the new build
-  shows all demo objects inside the view.
+Run 1 (first build of the flow):
+- First compile failed: `error CS0723 / CS0721 'QuestStatus'` (name clash with `QuestStatus` in `Net/Protocol.cs`);
+  the new helper was renamed `DeviceStatus`.
+- Editor smoke test (batchmode `DemoSmokeTest`, UI rebuilt, Play mode, whole DemoTour):
+  `UI scene built ... screens 15, tabs 7`, `[DEMO-TEST] RESULT screens 42, errors 0  -> PASSED`, 14 `DEMO-TOUR check OK`
+  (Control Mode > Session; HOST > Quest list; offline cannot be selected; two selected; Continue > Play; back Play >
+  Quest list; back Quest list > Session; live card > host dashboard; PLAYER > Play; player acts on one Quest; Change >
+  My Quest list; pick > Play; back Play > Session (player); back Session > Home).
+- Scene Play-mode test (demo forced OFF): `[SIM-TEST] RESULT 82 passed, 0 failed  -> ALL PASSED`.
+- APK: `Build result: Succeeded`, 16,351,574 bytes. Phone ZA223HXPHV (user allowed uninstall + install):
+  `adb uninstall com.medisim.vr` -> `Success`, `adb install` -> `Success`, `firstInstallTime=2026-11-12 12:42:21`.
+  Tour: 42 screenshots, `DEMO-TOUR done 42 screens`; the phone's log buffer had rotated, the kept app lines showed
+  12 checks OK, 0 FAILED, 0 exceptions, 0 E/Unity.
+- Found on the screenshots: the Quest name was missing on every DeviceRowView card (Quest list, Devices tab, My Quest
+  list): the name box was 58 px high and an Inter 48 pt line needs ~58.1 px, so TextMeshPro (Ellipsis) hid the line.
+  Fixed: name box 72 px, info / content boxes 46 px (fit also at text size L), IP line full width; host dashboard card
+  name box 70 px for the same reason. Also "Playing on: Quest-A1B2, Quest-C3D4, Que..." with 3 Quests: now
+  "Quest-A1B2, Quest-C3D4 +1". One screenshot of run 1 also caught a phone notification; run 2 replaced all screenshots.
 
-### After the round 1 review fixes (final build)
-- Editor smoke test again (after the DemoTour / player / pick fixes): `[MediSimVR] UI scene built ... screens 13, tabs 7`,
-  `[DEMO-TEST] RESULT screens 35, errors 0  -> PASSED`.
-- APK build after these fixes: `Build result: Succeeded`, 16,320,510 bytes; installed (`Success`,
-  `lastUpdateTime=2026-11-10 19:37:45`), phone tour: `DEMO-TOUR done 35 screens`, 0 `not a Unity engine type`, 0 app
-  exceptions. `16_session_player_pick.png`: Quest-E5F6 (offline) card dimmed and not tappable, but the longer hint text
-  was cut off ("...as a play...").
-- Hint text shortened ("Tap your online Quest to join as a player", text only; smoke test not rerun for it). Final APK:
-  `Build result: Succeeded`, 16,320,578 bytes (19:44). Phone run of this build (app pid 28759):
-  `AppRoot.Awake, demo mode ON` (19:44:34), `Demo scene loaded (6 objects)`, `DEMO-TOUR done 35 screens` (19:47:04),
-  0 `not a Unity engine type`, 0 app exceptions; 35 new screenshots. The install command's own output was lost (the
-  Claude session was interrupted); the new short hint text, shown in full in the new `16_session_player_pick.png`, proves
-  this build is the one on the phone.
-- Scene Play-mode test not rerun after round 1: `SceneScreen.cs` only got a comment; `ThemeManager.Preview` is not used
-  by that test.
+Run 2 (final build, after these fixes):
+- Editor smoke test: `screens 15, tabs 7`, `[DEMO-TEST] RESULT screens 42, errors 0  -> PASSED`, 14 checks OK.
+- APK: `Build result: Succeeded`, 16,346,870 bytes (12:50). `adb install -r` -> `Success`,
+  `lastUpdateTime=2026-11-12 12:50:14` (same install as run 1, `firstInstallTime` 12:42:21).
+- Phone tour, full Unity log `demo-screens/tour_unity_log.txt` (277 lines, app pid 11559):
+  `[MediSimVR] AppRoot.Awake, demo mode ON` (12:50:20), `DEMO-TOUR start`, `Demo scene loaded (6 objects)`,
+  `DEMO-TOUR done 42 screens` (12:53:22); 14 `check OK`, 0 `check FAILED`; 0 E/Unity, 0 W/Unity, 0 exceptions,
+  0 `not a Unity engine type`.
+- Screenshots (42, `demo-screens/`, git-ignored), checked by eye: 01 home, 02 session_start, 03 host_already_active,
+  04 quest_list, 05 filter_in_use, 06 filter_offline, 07 quest_list_selected (toast "offline: it cannot be selected"),
+  08 play_choose_video, 09 play_host_ready, 10 play_replace_content, 11 play_host_playing (progress 00:04 / 05:00),
+  12 play_host_paused, 13 play_host_image (Show on Quest / Hide), 14 quest_list_in_use (both In Use with what they show),
+  15 session_start_live, 16-18 host dashboard / timeline / chat, 19-21 scene, 22 session_summary, 23 play_player
+  ("My Quest: Quest-A1B2", "Mode: Player"), 24 player_change_quest, 25 play_player_audio, 26 home_player_mode
+  ("Mode: Player • Quest-C3D4"), 27 devices, 28 send, 29 control, 30 settings, 31 edit_app, 32 notifications,
+  33-42 Quest list + Play page in the Default / Dark / Light / Ocean / Purple themes. Names, status chips, filters,
+  counts and controls are visible in all of them.
+- Scene Play-mode test not rerun for run 2: only builder layout values and the Play page target text changed.
+
+Run 4 (after the review round 2 fixes; this is the build on the phone now):
+- Editor smoke test: `screens 15, tabs 7`, `[DEMO-TEST] RESULT screens 42, errors 0  -> PASSED`, 16 checks OK.
+- APK: `Build result: Succeeded`, 16,345,954 bytes (13:04). `adb install -r` -> `Success`,
+  `lastUpdateTime=2026-11-12 13:04:46`.
+- Phone tour (`tour_unity_log.txt`, 287 lines, pid 15851): `AppRoot.Awake, demo mode ON` (13:04:52),
+  `DEMO-TOUR done 42 screens` (13:07:54), 16 checks OK incl. `Change on the Play page goes to the Quest list (host)`
+  and `Continue goes back to the Play page`, 0 FAILED, 0 E/Unity, 0 W/Unity, 0 exceptions; capture exit 0.
+  42 screenshots replaced, checked by eye: same as run 2 / 3.
+
+Run 3 (after the review round 1 fixes):
+- Editor smoke test: `screens 15, tabs 7`, `[DEMO-TEST] RESULT screens 42, errors 0  -> PASSED`, 14 checks OK.
+- APK: `Build result: Succeeded`, 16,345,062 bytes (12:57). `adb install -r` -> `Success`,
+  `lastUpdateTime=2026-11-12 12:57:55`.
+- Phone tour (`tour_unity_log.txt`, 277 lines, pid 13656): `AppRoot.Awake, demo mode ON` (12:58:01),
+  `DEMO-TOUR done 42 screens` (13:01:03), 14 checks OK, 0 FAILED, 0 E/Unity, 0 W/Unity, 0 exceptions;
+  capture script exit 0 (new "finished" check). 42 screenshots replaced again, checked by eye: same as run 2.
+- Not separately tested: the "File picker not available" message (the picker always exists in the app) and
+  "TOUR NOT FINISHED" (needs a broken tour); both are small guard branches.
 
 ### Review input note
 `*.unity` scenes are excluded from the Codex diff (Main.unity is regenerated by MediSimUIBuilder and is too large);
 the builder code that generates it is in the diff.
 
 ## Not verified
-- Real human taps on the phone (the tour presses the app's own buttons from code; the touch layer itself is the same as
-  in the earlier releases). The presenter should do one dry run with DEMO.md.
-- That the saved theme is unchanged after the tour: by code (`ThemeManager.Preview` does not write PlayerPrefs, the tour
-  ends with `ThemeManager.Load()`); the release APK is not debuggable, so the prefs file was not read on the phone.
-- Demo mode OFF path on the phone (real network + Session "backend tomorrow" text): built and covered by the Scene
-  Play-mode test in the Editor, not opened on the phone.
-- Real backend: none today by design (ISessionService has no real implementation yet).
-- With the real network, "Open in Scene" for one Quest is a label only: the scene is shared and edits go to every
-  receiver (SceneSync v2 has no per-device scene). Fine for the demo; to be decided with the backend.
+- Real human taps on the phone: the tour presses the app's own buttons from code. The presenter should do one dry run
+  with DEMO.md.
+- Demo mode OFF on the phone (real network): the flow uses only IControllerService, so HOST / PLAYER / Play page work
+  with real Quests in code, but this was not run against real Quests today. The progress bar stays at 0:00 with real
+  Quests (the receiver does not report a position yet).
+- Browse phone (Android file picker) from the Play page: same picker code as the Send tab, not opened in the tour (it
+  leaves the app). Same for "Write new text" (keyboard input).
+- With the real service: when `FileId` is set after a send (the Play page shows the controls on it), and a failed send
+  (the controls hide again after the sending time).
 
 ## Review rounds
-- Round 1: FAIL (4 major, 1 minor). Changes:
-  1. `SessionPlayerPickScreen.cs`: offline Quest cards are shown dimmed and their button is disabled
-     (`button.interactable = d.Online`); hint text says offline Quests cannot be picked.
-  2. `SceneScreen.ShowFor`: no code change, comment added. SceneSync has ONE shared scene: every receiver holds the
-     same objects (same ids) and every edit goes to all receivers; the demo link serves the same scene for every
-     Quest. "Open in Scene" for one Quest only names that Quest in the status line and tags the timeline entries, so
-     when the filter is cleared there is no per-Quest scene to unload (reloading would only throw away undo history).
-  3. `DemoTour.cs`: `Run` returns `bool`, sets `Running` / `Steps` before the coroutine starts; `OnDisable` clears
-     `Running` if the tour is stopped (scene reload, app or Play mode exit). Theme presets are now applied with the new
-     `ThemeManager.Preview` (not saved) and the saved theme is reloaded at the end (`ThemeManager.Load`), so an
-     interrupted tour can no longer leave a preset saved as the user's theme. `DemoSmokeTest` fails at once when the
-     tour does not start. (Its timeout path already leaves Play mode outside batchmode: `EditorApplication.isPlaying = false`
-     in `Finish`.)
-  4. `SessionPlayerScreen.cs`: live voice switch and Mute me now log to the session timeline (`Voice` / `Mute`) and
-     refresh the screen at once.
-  5. `DEMO.md`: Demo mode OFF steps spelled out (confirm, app restarts, then open Session).
-- Round 2: PASS with 1 minor (the "all demo text in DemoConfig" claim was too wide). Fixed by narrowing the wording in
-  REPORT.md (task item 5) and DEMO.md; no code change. REVIEW.md = round 2 answer.
+- Round 1: FAIL (7 major, 1 minor). Changes / answers:
+  1. ContentChooser hooks the picker in Start: Unity runs every Awake (AppRoot.Awake creates the picker) before any
+     Start of the scene objects, so this did not fail; still made lazy: `Picker()` hooks on first use too (falls back to
+     the FilePicker on the same object).
+  2. Real: Player Play page with no online My Quest kept the old selection. `ControlFlow.SelectOnly(null)` now clears
+     every selection, and `PlayScreen.OnShow` always calls it in player mode (an offline My Quest is never a target:
+     `SelectedOnline` skips it).
+  3. No change: without a session service the role is set directly by `ControlFlow.StartLocalHost()` (HOST) and
+     `ControlFlow.UsePlayerQuest()` (`localRole = Player`), so switching works in demo off; the "Switch to ...?" popup
+     only exists when a session service exists.
+  4. No change: after "Switch to Host?" ends this phone's player session, `StartHost(false)` asking "Host already
+     active" is the demo's simulated OTHER phone (shown until someone takes over), which is the intended demo message.
+  5. Picks go through `ContentChooser.Pick()`, which says "File picker not available" if there is none.
+  6. The report is right: the builder log says `screens 15` (13 + Quest list + Play); the scene is generated by the
+     builder code in the diff (see Review input note). The My Quest list uses the same `DeviceList()` builder helper
+     and `DeviceListView` as the Devices tab and the Quest list.
+  7. Real: `capture-demo-screens.sh` now exits 1 with "TOUR NOT FINISHED" when no "DEMO-TOUR done" line arrived.
+  8. `TxtName` trims, uses "Text" for an empty title, checks ".txt" without case.
+- Round 2: FAIL (3 major). Changes / answers:
+  1. No change, by design: the Play page shows the controls while a send is running (state line "Sending <file>...")
+     and when a target has the file (`QuestDevice.FileId`, set by the service when the send finished: mock after
+     `FakeSendSeconds`). A send that never finishes hides the controls again after `FakeSendSeconds + 3 s`. When the
+     real service sets `FileId` is not verified today (see Not verified).
+  2. `ContentChooser`: the `done` callback is now also called after "Write new text" and after a file picked on the
+     phone (kept as `pendingDone` until the picker answers; cleared on a picker error). Before, those paths refreshed
+     the screen only through the service's Changed event (`AddFile` fires it in both services).
+  3. Host "Change" on the Play page now opens the Quest list directly (`nav.Tab(ScreenId.QuestList)`); before, it used
+     Back, which also always went to the Quest list for the host (fixed parent). New tour checks: "Change on the Play
+     page goes to the Quest list (host)" and "Continue goes back to the Play page" (16 checks now).
+- Round 3: PASS, "Issues: none" (REVIEW.md).

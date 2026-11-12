@@ -24,10 +24,11 @@ namespace MediSimVR
         public const string ModePlayer = "Player";
         public const string SessionSubtitle = "Run a live training session";
         public const string HostCardTitle = "HOST";
-        public const string HostCardText = "Control all Quests, voice, text and the timeline";
+        public const string HostCardText = "Control all Quests in the room";
         public const string PlayerCardTitle = "PLAYER";
-        public const string PlayerCardText = "Join with one Quest";
-        public const string BackendMissing = "Sessions need the MediSimVR backend (connected tomorrow).\nTurn on Demo mode in Settings to try it now.";
+        public const string PlayerCardText = "Play on your own Quest";
+        public const string BackendMissing = "Live voice, chat and the session timeline need the MediSimVR backend (connected tomorrow).\nTurn on Demo mode in Settings to try them now.";
+        public const string DashboardHint = "Voice, chat and timeline: tap to open";
         public const string HostActiveTitle = "Host already active";
         public const string HostActiveText = "Dr. Priya's phone is hosting this room right now.\nTake over as host?";
         public const string RecorderName = "PC-LAB1";
@@ -86,19 +87,20 @@ namespace MediSimVR
         public const string LeaveJoinQuestId = "q4";
         public const float LeaveAfter = 50f, RejoinAfter = 65f;
 
-        // ---------- Quests ----------
+        // ---------- Quests (one in use, one offline) ----------
         public class Quest
         {
             public string Id, Name, Ip, FileId;
             public bool Online, Muted;
             public int Battery;
             public DeviceState State;
+            public float PositionSec;   // where the playing file is at app start
         }
 
         public static readonly Quest[] Quests =
         {
-            new Quest { Id = "q1", Name = "Quest-A1B2", Ip = "192.168.1.21", Online = true, Battery = 86, State = DeviceState.Playing, FileId = "f1" },
-            new Quest { Id = "q2", Name = "Quest-C3D4", Ip = "192.168.1.22", Online = true, Battery = 64, State = DeviceState.Paused, FileId = "f2" },
+            new Quest { Id = "q1", Name = "Quest-A1B2", Ip = "192.168.1.21", Online = true, Battery = 86, State = DeviceState.Playing, FileId = "f1", PositionSec = 95f },
+            new Quest { Id = "q2", Name = "Quest-C3D4", Ip = "192.168.1.22", Online = true, Battery = 64, State = DeviceState.Idle, FileId = "" },
             new Quest { Id = "q3", Name = "Quest-E5F6", Ip = "192.168.1.23", Online = false, Battery = -1, State = DeviceState.Idle, FileId = "" },
             new Quest { Id = "q4", Name = "Quest-G7H8", Ip = "192.168.1.24", Online = true, Battery = 92, State = DeviceState.Idle, FileId = "", Muted = true },
         };
@@ -117,6 +119,7 @@ namespace MediSimVR
             new File { Id = "f1", Name = "Anatomy_Heart_360.mp4", Kind = MediaKind.Video, Size = 412L << 20, Seconds = 420, Top = "#F8B4B4", Bottom = "#B91C1C" },
             new File { Id = "f2", Name = "CPR_Training.mp4", Kind = MediaKind.Video, Size = 268L << 20, Seconds = 300, Top = "#93C5FD", Bottom = "#1D4ED8" },
             new File { Id = "f3", Name = "Briefing_Audio.mp3", Kind = MediaKind.Audio, Size = 7L << 20, Seconds = 185, Top = "#FDE68A", Bottom = "#B45309" },
+            new File { Id = "f5", Name = "Heart_Diagram.png", Kind = MediaKind.Image, Size = 2L << 20, Seconds = -1, Top = "#FBCFE8", Bottom = "#BE185D" },
             new File { Id = "f4", Name = "Safety_Checklist.txt", Kind = MediaKind.Text, Top = "#E3F2FD", Bottom = "#90CAF9",
                        Text = "1. Clear the play area.\n2. Adjust the head strap.\n3. Follow the trainer's instructions." },
         };
