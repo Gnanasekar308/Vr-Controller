@@ -62,11 +62,12 @@ namespace MediSimVR
             "confirmed the instruction"
         };
 
-        // ---------- colours (hex) ----------
-        public const string SpeakingColor = "#22C55E";
-        public const string RecordingColor = "#EF4444";
-        public const string MutedColor = "#F59E0B";
-        public const string MyBubbleColor = "#1A7FE8";
+        // ---------- colours: theme roles of the design system (so every theme preset stays consistent) ----------
+        public const ColorRole SpeakingRole = ColorRole.Success;    // who is speaking (green)
+        public const ColorRole RecordingRole = ColorRole.Danger;    // "Recording on PC" dot (red)
+        public const ColorRole MutedRole = ColorRole.Warning;       // mute events (orange)
+        public const ColorRole MyBubbleRole = ColorRole.Primary;    // own chat messages (blue)
+        public const ColorRole LiveRole = ColorRole.Success;        // "LIVE" session indicator (green)
 
         public static Color Hex(string hex)
         {

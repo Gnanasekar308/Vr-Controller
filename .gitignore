@@ -52,3 +52,4 @@ Desktop.ini
 
 # Demo screenshots (made by Tools/capture-demo-screens.sh; kept on disk, not in git)
 /demo-screens/
+/layout-screens/

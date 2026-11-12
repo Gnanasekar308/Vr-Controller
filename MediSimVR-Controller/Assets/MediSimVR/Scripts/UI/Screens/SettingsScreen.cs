@@ -6,12 +6,13 @@ namespace MediSimVR
 {
     public class SettingsScreen : AppScreen
     {
-        public Button demoRow, customizationRow, networkRow, connectionRow, notificationRow, aboutRow;
+        public Button backButton, demoRow, customizationRow, networkRow, connectionRow, notificationRow, aboutRow;
         public TMP_Text demoSub, notificationSub, aboutSub;
 
         public override void Init(Navigator n)
         {
             base.Init(n);
+            if (backButton != null) backButton.onClick.AddListener(() => nav.Back());   // back to Home (Settings opens from the Home header)
             demoRow.onClick.AddListener(() =>
             {
                 bool on = AppRoot.Demo;

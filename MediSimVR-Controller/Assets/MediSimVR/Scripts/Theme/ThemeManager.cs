@@ -27,6 +27,14 @@ namespace MediSimVR
                 try { t = JsonUtility.FromJson<ThemeData>(json); } catch (Exception) { t = null; }
             }
             current = t ?? ThemeData.FromPreset("Default");
+            // a saved named preset (not "Custom") takes the preset's current colours, so design updates reach it;
+            // the user's own settings (text size, buttons, spacing) stay as saved
+            if (t != null && t.Preset != "Custom" && Array.IndexOf(ThemeData.PresetNames, t.Preset) >= 0)
+            {
+                var p = ThemeData.FromPreset(t.Preset);
+                current.Primary = p.Primary; current.Secondary = p.Secondary; current.Background = p.Background;
+                current.Card = p.Card; current.Text = p.Text; current.Accent = p.Accent;
+            }
             Notify();
         }
 
@@ -70,8 +78,9 @@ namespace MediSimVR
                 case ColorRole.Primary: return t.Primary;
                 case ColorRole.Secondary: return t.Secondary;
                 case ColorRole.Accent: return t.Accent;
+                case ColorRole.Success: return t.Accent;
                 case ColorRole.Text: return t.Text;
-                case ColorRole.SubText: return Color.Lerp(t.Text, t.Card, 0.45f);
+                case ColorRole.SubText: return Color.Lerp(t.Text, t.Card, 0.48f);   // default theme: ~#8B929A (spec #89919E)
                 case ColorRole.Divider: return Color.Lerp(t.Card, t.Text, 0.12f);
                 case ColorRole.Field: return Color.Lerp(t.Card, t.Text, 0.06f);
                 case ColorRole.PrimarySoft: { var c = t.Primary; c.a = 0.14f; return c; }

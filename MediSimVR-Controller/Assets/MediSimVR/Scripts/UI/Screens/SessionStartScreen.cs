@@ -10,9 +10,10 @@ namespace MediSimVR
     // A running session shows a card that opens its live dashboard (voice, chat, timeline). Up: Home.
     public class SessionStartScreen : AppScreen
     {
-        public TMP_Text modeText, activeText;
-        public GameObject demoBadge, activeCard, unavailable;
+        public TMP_Text modeText, activeText, activeSub, activeTimeText;
+        public GameObject demoBadge, activeCard, activeShadow, unavailable;
         public Button hostButton, playerButton, activeButton;
+        public SpeakingPulse livePulse;   // green LIVE dot of the running-session card
 
         private ISessionService Ses { get { return AppRoot.Session; } }
 
@@ -63,7 +64,7 @@ namespace MediSimVR
 
         private void Switch(string title, string text, System.Action again)
         {
-            nav.popup.Show(title, text, "Switch", () => { Ses.End(); again(); }, "Cancel");
+            nav.popup.Show(title, text, "Switch", () => { Ses.End(); again(); }, "Cancel", destructive: true);
         }
 
         private void OpenDashboard()
@@ -87,10 +88,13 @@ namespace MediSimVR
             demoBadge.SetActive(AppRoot.Demo);
             unavailable.SetActive(Ses == null);
             bool active = Ses != null && Ses.Active;
-            activeCard.SetActive(active);
-            if (active)
-                activeText.text = (Ses.Role == SessionRole.Host ? "Live host session" : "Live player session") +
-                                  "  •  " + Fmt.Clock(Ses.Elapsed) + "\n" + DemoConfig.DashboardHint;
+            if (activeCard.activeSelf != active) activeCard.SetActive(active);
+            if (activeShadow != null && activeShadow.activeSelf != active) activeShadow.SetActive(active);
+            if (livePulse != null) livePulse.Set(active);
+            if (!active) return;
+            activeText.text = Ses.Role == SessionRole.Host ? "Live host session" : "Live player session";
+            if (activeTimeText != null) activeTimeText.text = Fmt.Clock(Ses.Elapsed);
+            if (activeSub != null) activeSub.text = DemoConfig.DashboardHint;
         }
 
         private float nextTick;

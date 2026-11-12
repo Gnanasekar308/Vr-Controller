@@ -33,6 +33,16 @@ namespace MediSimVR
 
         public Button objectsButton, inspectorButton, resetButton;
 
+        // viewport: placeholder until a scene arrives, demo badge, full view (hides the header, toolbars and bottom bar)
+        public GameObject placeholder, demoBadge;
+        public TMP_Text placeholderTitle, placeholderText;
+        public Button expandButton;
+        public Image expandIcon;
+        public Sprite expandSprite, collapseSprite;
+        public RectTransform viewFrame;
+        public Vector2 frameMin, frameMax, fullMin, fullMax;          // viewport offsets: normal / full view
+        public List<GameObject> chrome = new List<GameObject>();      // hidden in full view
+
         public GameObject hierarchySheet;
         public Button hierarchyClose;
         public HierarchyRowView rowTemplate;
@@ -57,6 +67,13 @@ namespace MediSimVR
         private InspectorField editingField;
         private float nextStatus;
         private string showOnly = "";
+        private bool fullView;
+
+        // tool bar order: Select (no gizmo, tap = select), Move, Rotate, Scale, All
+        public const int SelectToolIndex = 0;
+        public static int ToolIndex(GizmoTool t) { return (int)t + 1; }
+
+        public bool FullView { get { return fullView; } }
 
         public SceneSyncClient Client { get { return client as SceneSyncClient; } }   // null in demo mode
         public DemoSceneLink DemoLink { get { return client as DemoSceneLink; } }    // null with the real network
@@ -82,7 +99,14 @@ namespace MediSimVR
             doc.LockChanged += OnLock;
             doc.HistoryChanged += RefreshHistory;
 
-            toolSeg.Changed += i => { edit.Tool = (GizmoTool)i; UpdateHint(); };
+            toolSeg.Changed += i =>
+            {
+                edit.SelectOnly = i == SelectToolIndex;
+                if (i != SelectToolIndex) edit.Tool = (GizmoTool)(i - 1);
+                UpdateHint();
+            };
+            toolSeg.Select(ToolIndex(edit.Tool), false);
+            if (expandButton != null) expandButton.onClick.AddListener(() => SetFullView(!fullView));
             spaceSeg.Changed += i => edit.Global = i == 1;
             pivotSeg.Changed += i => edit.CenterPivot = i == 1;
             syncSeg.Changed += i =>
@@ -149,6 +173,29 @@ namespace MediSimVR
         {
             if (client != null) client.Dispose();
             if (rt != null) { rt.Release(); Destroy(rt); }
+        }
+
+        // full view: the viewport uses almost the whole screen (the bottom navigation stays); header, toolbars and the
+        // bottom bar are hidden. The view's RenderTexture follows the new size (EnsureTexture), so nothing is stretched.
+        public void SetFullView(bool on)
+        {
+            fullView = on;
+            foreach (var g in chrome) if (g != null) g.SetActive(!on);
+            if (on) ShowSheet(null);
+            if (viewFrame != null)
+            {
+                viewFrame.offsetMin = on ? fullMin : frameMin;
+                viewFrame.offsetMax = on ? fullMax : frameMax;
+            }
+            if (expandIcon != null) expandIcon.sprite = on ? collapseSprite : expandSprite;
+        }
+
+        // Android back: close an open sheet, then leave the full view, then the screen
+        public override bool HandleBack()
+        {
+            if (hierarchySheet.activeSelf || inspectorSheet.activeSelf) { ShowSheet(null); return true; }
+            if (fullView) { SetFullView(false); return true; }
+            return false;
         }
 
         private void Update()
@@ -422,6 +469,7 @@ namespace MediSimVR
             if (!client.HasScene) hintText.text = "Waiting for the scene from a PC / Quest";
             else if (o == null) hintText.text = "Tap an object  •  drag = orbit  •  2 fingers = pan / zoom";
             else if (o.locked) hintText.text = o.name + " is locked  •  tap Lock to edit";
+            else if (edit.SelectOnly) hintText.text = o.name + " selected  •  pick Move / Rotate / Scale to edit";
             else
             {
                 switch (edit.Tool)
@@ -443,8 +491,12 @@ namespace MediSimVR
             float f = c != null ? c.scaleFactor : 1f;
             Rect r = view.rectTransform.rect;
             if (r.width < 1f || r.height < 1f) return; // not laid out yet: Update() tries again next frame
-            int w = Mathf.Clamp(Mathf.RoundToInt(r.width * f), 64, 2048);
-            int h = Mathf.Clamp(Mathf.RoundToInt(r.height * f), 64, 2048);
+            // keep the viewport's aspect ratio when the size is limited to 2048 (full view on a tall phone), so the
+            // scene is never stretched
+            float pw = r.width * f, ph = r.height * f;
+            float k = Mathf.Min(1f, 2048f / Mathf.Max(pw, ph));
+            int w = Mathf.Max(64, Mathf.RoundToInt(pw * k));
+            int h = Mathf.Max(64, Mathf.RoundToInt(ph * k));
             if (rt != null && rt.width == w && rt.height == h) return;
             if (rt != null) { worldCamera.targetTexture = null; rt.Release(); Destroy(rt); }
             rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "SceneView", antiAliasing = 2 };
@@ -457,6 +509,7 @@ namespace MediSimVR
         private void RefreshStatus()
         {
             if (statusText == null || client == null) return;
+            RefreshViewport();
             var list = client.TargetNames;
             if (list.Count == 0)
             {
@@ -465,15 +518,31 @@ namespace MediSimVR
                 return;
             }
             sb.Length = 0;
-            sb.Append(AppRoot.Demo ? "Demo: " : "Connected: ");
-            for (int i = 0; i < list.Count; i++)
+            // demo mode shows sample objects (badge in the view), never presented as a live Unity scene
+            sb.Append(AppRoot.Demo ? "Demo scene: " : "Live from Unity: ");
+            for (int i = 0; i < list.Count && i < 2; i++)   // short: "Quest-A1B2, Quest-C3D4 +1"
             {
                 if (i > 0) sb.Append(", ");
                 sb.Append(list[i]);
             }
-            if (client.WaitingForScene) sb.Append("  •  loading scene...");
+            if (list.Count > 2) sb.Append(" +").Append(list.Count - 2);
+            if (client.WaitingForScene) sb.Append("  •  loading...");
             statusText.text = sb.ToString();
-            statusDot.color = ThemeManager.Get(client.HasScene ? ColorRole.Accent : ColorRole.Warning);
+            statusDot.color = ThemeManager.Get(client.HasScene ? ColorRole.Success : ColorRole.Warning);
+        }
+
+        // placeholder until the first scene arrives; demo badge in demo mode
+        private void RefreshViewport()
+        {
+            bool has = client.HasScene;
+            if (placeholder != null && placeholder.activeSelf == has) placeholder.SetActive(!has);
+            if (demoBadge != null && demoBadge.activeSelf != (AppRoot.Demo && has)) demoBadge.SetActive(AppRoot.Demo && has);
+            if (has || placeholderText == null) return;
+            var list = client.TargetNames;
+            placeholderTitle.text = AppRoot.Demo ? "Loading demo scene" : "Waiting for Unity Scene";
+            placeholderText.text = client.Error != null ? "Network error: " + client.Error
+                : list.Count == 0 ? "Start the Unity scene on the PC (Play mode) or a Quest on this Wi-Fi"
+                : "Loading the scene from " + list[0] + "...";
         }
 
         private void AskIps()

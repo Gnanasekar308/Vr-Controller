@@ -25,10 +25,10 @@ namespace MediSimVR
         {
             switch (k)
             {
-                case SessionEventKind.Voice: return DemoConfig.Hex(DemoConfig.SpeakingColor);
+                case SessionEventKind.Voice: return ThemeManager.Get(DemoConfig.SpeakingRole);
                 case SessionEventKind.Leave: return ThemeManager.Get(ColorRole.Danger);
-                case SessionEventKind.Join: return ThemeManager.Get(ColorRole.Accent);
-                case SessionEventKind.Mute: return DemoConfig.Hex(DemoConfig.MutedColor);
+                case SessionEventKind.Join: return ThemeManager.Get(ColorRole.Success);
+                case SessionEventKind.Mute: return ThemeManager.Get(DemoConfig.MutedRole);
                 default: return ThemeManager.Get(ColorRole.Primary);
             }
         }

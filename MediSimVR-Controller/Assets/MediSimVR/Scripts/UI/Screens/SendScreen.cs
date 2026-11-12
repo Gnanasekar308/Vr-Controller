@@ -8,7 +8,7 @@ namespace MediSimVR
     public class SendScreen : AppScreen
     {
         public MediaPreviewView preview;
-        public TMP_Text sendLabel;
+        public TMP_Text sendLabel, subtitleText;
         public Button selectButton, sendButton;
 
         private ContentChooser chooser;
@@ -36,7 +36,14 @@ namespace MediSimVR
         public override void Refresh()
         {
             preview.Bind(Svc.ControlFile);
-            sendLabel.text = "Send (" + Svc.SelectedOnline().Count + ")";
+            var sel = Svc.SelectedOnline();
+            sendLabel.text = "Send (" + sel.Count + ")";
+            if (subtitleText != null)   // like the Control tab: who receives it
+            {
+                var names = new System.Text.StringBuilder();
+                foreach (var d in sel) { if (names.Length > 0) names.Append(", "); names.Append(d.Name); }
+                subtitleText.text = sel.Count == 0 ? "No Quest selected (Devices tab)" : "Send to: " + names;
+            }
         }
     }
 }

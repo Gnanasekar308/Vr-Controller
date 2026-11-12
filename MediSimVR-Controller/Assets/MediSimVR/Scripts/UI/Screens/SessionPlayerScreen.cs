@@ -27,7 +27,7 @@ namespace MediSimVR
                 var s = nav.Get<SessionSummaryScreen>();
                 if (s != null) s.summary = summary;
                 nav.Tab(ScreenId.SessionSummary);
-            }, "Cancel"));
+            }, "Cancel", destructive: true));
             playButton.onClick.AddListener(() => Do(SessionEventKind.Play, "play", () => Svc.Play()));
             pauseButton.onClick.AddListener(() => Do(SessionEventKind.Pause, "pause", () => Svc.Pause()));
             stopButton.onClick.AddListener(() => Do(SessionEventKind.Stop, "stop", () => Svc.Stop()));

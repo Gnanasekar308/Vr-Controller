@@ -4,13 +4,10 @@ namespace MediSimVR
 {
     public enum QuestState { Online, Offline, InUse }
 
-    // A Quest's status, the same in every list: Online (green), Offline (grey), In Use (blue: it plays or shows something).
+    // A Quest's status, the same in every list: Online (success green), Offline (secondary grey), In Use (primary blue:
+    // it plays or shows something). Colours are theme roles of the design system.
     public static class DeviceStatus
     {
-        public static readonly Color OnlineColor = new Color32(0x22, 0xC5, 0x5E, 255);
-        public static readonly Color OfflineColor = new Color32(0x9C, 0xA3, 0xAF, 255);
-        public static readonly Color InUseColor = new Color32(0x25, 0x63, 0xEB, 255);
-
         public static bool InUse(QuestDevice d)
         {
             return d.Online && (d.State == DeviceState.Playing || d.State == DeviceState.Paused || d.State == DeviceState.ShowingText);
@@ -26,10 +23,12 @@ namespace MediSimVR
             return s == QuestState.InUse ? "In Use" : s == QuestState.Online ? "Online" : "Offline";
         }
 
-        public static Color Tint(QuestState s)
+        public static ColorRole Role(QuestState s)
         {
-            return s == QuestState.InUse ? InUseColor : s == QuestState.Online ? OnlineColor : OfflineColor;
+            return s == QuestState.InUse ? ColorRole.Primary : s == QuestState.Online ? ColorRole.Success : ColorRole.SubText;
         }
+
+        public static Color Tint(QuestState s) { return ThemeManager.Get(Role(s)); }
 
         // "Playing Anatomy_Heart_360.mp4", "Paused ...", "Idle"
         public static string Content(QuestDevice d, IControllerService svc)

@@ -3,7 +3,9 @@ using UnityEngine;
 
 namespace MediSimVR
 {
-    public enum ColorRole { Background, Card, Primary, Secondary, Accent, Text, SubText, Divider, PrimarySoft, OnPrimary, Danger, Warning, Field }
+    // Design system colours. Primary = blue, Secondary = teal (primary actions: teal-to-blue gradient), Accent = success
+    // green (Success is the same colour), Danger = red (stop / remove / end), Warning = orange, Divider = borders.
+    public enum ColorRole { Background, Card, Primary, Secondary, Accent, Text, SubText, Divider, PrimarySoft, OnPrimary, Danger, Warning, Field, Success }
     public enum ButtonStyle { Rounded, Pill, Square }
     public enum SizeStep { S, M, L }
     public enum Density { Compact, Normal, Comfortable }
@@ -32,9 +34,11 @@ namespace MediSimVR
             return c;
         }
 
+        // presets share the design system shape: pill buttons, 20 px corners (cards 26)
         static ThemeData Make(string name, string p, string s, string bg, string card, string text, string acc)
         {
-            return new ThemeData { Preset = name, Primary = H(p), Secondary = H(s), Background = H(bg), Card = H(card), Text = H(text), Accent = H(acc) };
+            return new ThemeData { Preset = name, Primary = H(p), Secondary = H(s), Background = H(bg), Card = H(card), Text = H(text), Accent = H(acc),
+                                   ButtonStyle = ButtonStyle.Pill, CornerRadius = 20 };
         }
 
         public static readonly string[] PresetNames = { "Default", "Dark", "Light", "Ocean", "Purple", "Custom" };
@@ -47,7 +51,9 @@ namespace MediSimVR
                 case "Light": return Make(name, "#2563EB", "#0EA5E9", "#FFFFFF", "#F4F7FB", "#0F172A", "#16A34A");
                 case "Ocean": return Make(name, "#168AF2", "#12B5A6", "#062C43", "#0B4059", "#F4FAFD", "#00C987");
                 case "Purple": return Make(name, "#7C3AED", "#A855F7", "#F5F3FF", "#FFFFFF", "#1E1B4B", "#10B981");
-                default: return Make("Default", "#1A7FE8", "#14B8A6", "#F2F6FA", "#FFFFFF", "#1E293B", "#22C55E");
+                // MediSimVR identity: Primary Blue #2385ED, Primary Teal #16B9A9, Background #F1F6FA, Card #FFFFFF,
+                // Dark Text #202D3D (secondary text #89919E is derived from it, see ThemeManager.Get), success green
+                default: return Make("Default", "#2385ED", "#16B9A9", "#F1F6FA", "#FFFFFF", "#202D3D", "#22C55E");
             }
         }
     }

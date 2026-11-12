@@ -212,7 +212,7 @@ namespace MediSimVR.EditorTools
 
         static void SetTool(int tool, bool global)
         {
-            screen.toolSeg.Select(tool, true);
+            screen.toolSeg.Select(SceneScreen.ToolIndex((GizmoTool)tool), true);   // tool bar starts with Select
             screen.spaceSeg.Select(global ? 1 : 0, true);
             Refresh();
         }

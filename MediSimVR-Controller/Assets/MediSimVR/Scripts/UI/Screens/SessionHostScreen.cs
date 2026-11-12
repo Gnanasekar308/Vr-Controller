@@ -117,7 +117,7 @@ namespace MediSimVR
         {
             if (Ses == null) return;
             subtitleText.text = SessionStartScreen.ModeLine(true);
-            recordingDot.color = DemoConfig.Hex(DemoConfig.RecordingColor);
+            recordingDot.color = ThemeManager.Get(DemoConfig.RecordingRole);
             voiceSwitch.Set(Ses.LiveVoice, false);
             muteMeChip.Set(Ses.MicMuted);
             muteMeChip.SetLabel(Ses.MicMuted ? "Muted" : "Mute me");
@@ -237,7 +237,7 @@ namespace MediSimVR
                 var s = nav.Get<SessionSummaryScreen>();
                 if (s != null) s.summary = summary;
                 nav.Tab(ScreenId.SessionSummary);
-            }, "Cancel");
+            }, "Cancel", destructive: true);
         }
 
         // ---------- text sheet ----------

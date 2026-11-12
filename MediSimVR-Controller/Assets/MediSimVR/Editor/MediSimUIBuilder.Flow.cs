@@ -4,9 +4,10 @@ using UnityEngine.UI;
 
 namespace MediSimVR.EditorTools
 {
-    // Control Mode flow screens (part of MediSimUIBuilder): Quest list (host) and Play page, plus the components they
-    // share with the tabs: Devices list (DeviceListView + DeviceRowView), content preview card (MediaPreviewView),
-    // playback controls (PlaybackControlsView, big for the Control tab, compact for the Play page).
+    // Control Mode flow screens (part of MediSimUIBuilder, design system in MediSimUIBuilder.Kit.cs): Quest list (host)
+    // and Play page, plus the components they share with the tabs: Devices list (DeviceListView + DeviceRowView), content
+    // preview card (MediaPreviewView), playback controls (PlaybackControlsView, big for the Control tab, compact for the
+    // Play page). Content that can be taller than a small phone screen sits in scroll lists.
     public static partial class MediSimUIBuilder
     {
         // ===================================================================== Quest list (host)
@@ -21,30 +22,25 @@ namespace MediSimVR.EditorTools
             s.subtitleText = sub;
 
             var filterRow = New("FilterRow", s.transform);
-            TopBand(filterRow, HeadH + 4f, 100f, 32f);
+            TopBand(filterRow, HeadH + 4f, 96f, Margin);
             VLayout(filterRow.gameObject, 0, 0);
-            s.filterSeg = Seg(filterRow, "Filter", new[] { "All (4)", "Online (2)", "Offline (1)", "In Use (1)" }, 100f, true);
+            s.filterSeg = Seg(filterRow, "Filter", new[] { "All (4)", "Online (2)", "Offline (1)", "In Use (1)" }, 96f, true);
 
             var selRow = New("SelectRow", s.transform);
-            TopBand(selRow, HeadH + 122f, 80f, 32f);
-            var sa = Shape(selRow, "SelectAll", ColorRole.PrimarySoft, ShapeKind.Pill);
-            sa.GetComponent<ThemedShape>().pillHeight = 80f;
-            Place(sa.rectTransform, 0f, 0.5f, 340f, 80f, 0f, 0f);
-            s.selectAllButton = MakeButton(sa.gameObject, sa);
-            s.selectAllLabel = Txt(sa.transform, "Label", "Select all online", TextRole.Caption, ColorRole.Primary, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Stretch(s.selectAllLabel.rectTransform, 12, 0, 12, 0);
-            s.selectedText = Txt(selRow, "Count", "0 of 3 online selected", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.MidlineRight);
-            Stretch(s.selectedText.rectTransform, 360, 0, 8, 0);
+            TopBand(selRow, HeadH + 116f, SmallBtnH, Margin);
+            TextMeshProUGUI saLabel;
+            s.selectAllButton = Btn(selRow, "SelectAll", BtnKind.Tertiary, null, "Select all online", out saLabel);
+            Place((RectTransform)s.selectAllButton.transform, 0f, 0.5f, 340f, SmallBtnH, 0f, 0f);
+            s.selectAllLabel = saLabel;
+            s.selectedText = Secondary(selRow, "Count", "0 of 3 online selected");
+            s.selectedText.alignment = TextAlignmentOptions.MidlineRight;
+            Stretch(s.selectedText.rectTransform, 360, 0, 0, 0);
 
-            s.list = DeviceList(s.transform, HeadH + 218f, 230f);
+            s.list = DeviceList(s.transform, HeadH + 216f, 48f + BtnH + CardGap);
 
             TextMeshProUGUI lbl;
-            s.continueButton = GradientButton(s.transform, "Continue", "play_arrow", "Continue (0)", out lbl, true);
+            s.continueButton = BottomButton(s.transform, "Continue", BtnKind.Primary, "play_arrow", "Continue (0)", out lbl);
             s.continueLabel = lbl;
-            Place((RectTransform)s.continueButton.transform, 0.5f, 0f, 660f, 124f, 0f, 70f);
-            s.continueButton.GetComponent<ThemedShape>().themeHeight = false;
-            s.continueButton.GetComponent<ThemedShape>().pillHeight = 124f;
-            ShadowFor((RectTransform)s.continueButton.transform, 0.30f, ColorRole.Primary);
             return s;
         }
 
@@ -59,50 +55,41 @@ namespace MediSimVR.EditorTools
             s.backButton = back;
             s.subtitleText = sub;
 
+            // one scroll list: target, content type, preview, Send, then the controls (scrolls on short screens)
+            var list = ScrollList(s.transform, "List", HeadH + 4f, 20f);
+            list.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
+
             // target: "Playing on: ..." / "My Quest: ..." + Change
-            var chip = Shape(s.transform, "TargetChip", ColorRole.Card, ShapeKind.Pill);
-            chip.GetComponent<ThemedShape>().pillHeight = 100f;
-            chip.raycastTarget = false;
-            TopBand(chip.rectTransform, HeadH + 4f, 100f, 32f);
-            ShadowFor(chip.rectTransform, 0.08f);
-            var ti = Icon(chip.transform, "Icon", "vr_headset", ColorRole.Primary, 56f);
-            Place(ti.rectTransform, 0f, 0.5f, 56f, 56f, 34f, 0f);
-            s.targetText = Txt(chip.transform, "Target", "Playing on: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
-            Stretch(s.targetText.rectTransform, 110, 0, 222, 0);
-            var ch = Shape(chip.transform, "Change", ColorRole.PrimarySoft, ShapeKind.Pill);
-            ch.GetComponent<ThemedShape>().pillHeight = 72f;
-            Place(ch.rectTransform, 1f, 0.5f, 190f, 72f, -16f, 0f);
-            s.changeTargetButton = MakeButton(ch.gameObject, ch);
-            s.changeLabel = Txt(ch.transform, "Label", "Change", TextRole.Caption, ColorRole.Primary, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Stretch(s.changeLabel.rectTransform);
+            var chip = Panel(list, "TargetChip", 100f);
+            var ti = Icon(chip, "Icon", "vr_headset", ColorRole.Primary, IconSize);
+            Place(ti.rectTransform, 0f, 0.5f, IconSize, IconSize, CardPad, 0f);
+            s.targetText = Txt(chip, "Target", "Playing on: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            Stretch(s.targetText.rectTransform, CardPad + IconSize + 20f, 0, 236, 0);
+            TextMeshProUGUI chLabel;
+            s.changeTargetButton = Btn(chip, "Change", BtnKind.Tertiary, null, "Change", out chLabel, 72f);
+            Place((RectTransform)s.changeTargetButton.transform, 1f, 0.5f, 196f, 72f, -16f, 0f);
+            s.changeLabel = chLabel;
 
             // content type
-            var kindRow = New("KindRow", s.transform);
-            TopBand(kindRow, HeadH + 124f, 100f, 32f);
-            VLayout(kindRow.gameObject, 0, 0);
-            s.kindSeg = Seg(kindRow, "Kind", new[] { "Video", "Audio", "Image", "Text" }, 100f, true,
+            s.kindSeg = Seg(list, "Kind", new[] { "Video", "Audio", "Image", "Text" }, 96f, true,
                 new[] { "movie", "music_note", "image", "article" });
 
-            // preview card (same as the Send tab)
-            var holder = New("PreviewCard", s.transform);
-            TopBand(holder, HeadH + 244f, 600f, 40f);
+            // preview card (same component as the Send tab, smaller picture)
+            var holder = New("PreviewCard", list);
+            LE(holder, 660f);
             s.preview = PreviewCard(holder, "Pick a type above: video, audio, image or text");
 
-            // send
+            // send (primary)
             TextMeshProUGUI lbl;
-            s.sendButton = GradientButton(s.transform, "Send", "send", "Send & Play (2)", out lbl, true);
+            s.sendButton = Btn(list, "Send", BtnKind.Primary, "send", "Send & Play (2)", out lbl);
             s.sendLabel = lbl;
-            s.sendButton.GetComponent<ThemedShape>().themeHeight = false;
-            s.sendButton.GetComponent<ThemedShape>().pillHeight = 120f;
-            Place((RectTransform)s.sendButton.transform, 0.5f, 1f, 760f, 120f, 0f, -(HeadH + 870f));
-            ShadowFor((RectTransform)s.sendButton.transform, 0.28f, ColorRole.Primary);
 
             // before sending: a hint; after: the controls of the content type
-            s.hintText = Txt(s.transform, "Hint", "", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
+            s.hintText = Secondary(list, "Hint", "");
+            s.hintText.alignment = TextAlignmentOptions.Center;
             s.hintText.enableWordWrapping = true;
-            TopBand(s.hintText.rectTransform, HeadH + 1020f, 100f, 60f);
-            var ctrl = New("Controls", s.transform);
-            TopBand(ctrl, HeadH + 1016f, 380f, 32f);
+            LE(s.hintText, 90f);
+            var ctrl = New("Controls", list);
             s.controlsRoot = ctrl.gameObject;
             s.controls = ControlsCompact(ctrl);
             return s;
@@ -116,7 +103,8 @@ namespace MediSimVR.EditorTools
             var view = content.GetComponentInParent<ScrollRect>().gameObject.AddComponent<DeviceListView>();
             view.rowTemplate = DeviceRow(content);
             view.rowTemplate.gameObject.SetActive(false);
-            view.emptyText = Txt(screen, "Empty", "No devices", TextRole.Body, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
+            view.emptyText = BodyText(screen, "Empty", "No devices", ColorRole.SubText);
+            view.emptyText.alignment = TextAlignmentOptions.Center;
             TopBand(view.emptyText.rectTransform, top + 120f, 80f);
             view.emptyText.gameObject.SetActive(false);
             return view;
@@ -138,47 +126,43 @@ namespace MediSimVR.EditorTools
             v.checkBox.pixelsPerUnitMultiplier = 64f / 12f;   // 12 px corner radius
             v.checkBox.GetComponent<ThemedColor>().enabled = false;
             v.checkBox.gameObject.AddComponent<CanvasGroup>();
-            Place(v.checkBox.rectTransform, 0f, 0.5f, 60f, 60f, 36f, 0f);
-            v.checkMark = Icon(v.checkBox.transform, "Tick", "check", ColorRole.OnPrimary, 46f);
-            Place(v.checkMark.rectTransform, 0.5f, 0.5f, 46f, 46f);
+            Place(v.checkBox.rectTransform, 0f, 0.5f, 56f, 56f, CardPad, 0f);
+            v.checkMark = Icon(v.checkBox.transform, "Tick", "check", ColorRole.OnPrimary, 42f);
+            Place(v.checkMark.rectTransform, 0.5f, 0.5f, 42f, 42f);
             if (headset != null)
             {
                 var hs = Img(rt, "Headset", headset, ColorRole.OnPrimary);
                 hs.preserveAspect = true;
                 hs.raycastTarget = false;
-                Place(hs.rectTransform, 0f, 0.5f, 150f, 94f, 116f, 0f);
+                Place(hs.rectTransform, 0f, 0.5f, 140f, 88f, 108f, 0f);
             }
-            Divider(rt, 290f, true);
+            Divider(rt, 270f, true);
             // text boxes are taller than one line even at text size L: TextMeshPro hides a line that does not fit (Ellipsis)
-            v.nameText = Txt(rt, "Name", "Quest-01", TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
-            TopLeft(v.nameText.rectTransform, 320f, 8f, 270f, 72f);
-            v.infoText = Txt(rt, "Info", "86% battery  •  192.168.1.25", TextRole.Caption, ColorRole.SubText);
-            TopLeft(v.infoText.rectTransform, 320f, 78f, 36f, 46f);
+            v.nameText = CardTitle(rt, "Name", "Quest-01");
+            TopLeft(v.nameText.rectTransform, 296f, 10f, 270f, 72f);
+            v.infoText = Secondary(rt, "Info", "86% battery  •  192.168.1.25");
+            TopLeft(v.infoText.rectTransform, 296f, 80f, CardPad, 46f);
             v.contentText = Txt(rt, "Content", "Ready", TextRole.Caption, ColorRole.SubText, TextWeight.SemiBold);
             v.contentText.GetComponent<ThemedText>().applyColor = false;
-            TopLeft(v.contentText.rectTransform, 320f, 120f, 36f, 46f);
+            TopLeft(v.contentText.rectTransform, 296f, 124f, CardPad, 46f);
 
-            v.statusChip = Shape(rt, "Status", ColorRole.Accent, ShapeKind.Pill, 0.15f);
+            // status chip: DeviceRowView sets the colours (DeviceStatus roles)
+            TextMeshProUGUI st;
+            v.statusChip = StatusChip(rt, "Status", ColorRole.Success, "Online", 200f, out v.statusDot, out st);
+            v.statusText = st;
             v.statusChip.GetComponent<ThemedColor>().enabled = false;
-            v.statusChip.GetComponent<ThemedShape>().pillHeight = 56f;
-            v.statusChip.raycastTarget = false;
-            Place(v.statusChip.rectTransform, 1f, 1f, 210f, 56f, -28f, -16f);
-            v.statusDot = Img(v.statusChip.transform, "Dot", circle, ColorRole.Accent);
             v.statusDot.GetComponent<ThemedColor>().enabled = false;
-            v.statusDot.raycastTarget = false;
-            Place(v.statusDot.rectTransform, 0f, 0.5f, 20f, 20f, 24f, 0f);
-            v.statusText = Txt(v.statusChip.transform, "Text", "Online", TextRole.Caption, ColorRole.Accent, TextWeight.SemiBold);
-            v.statusText.GetComponent<ThemedText>().applyColor = false;
-            Stretch(v.statusText.rectTransform, 56, 0, 10, 0);
+            st.GetComponent<ThemedText>().applyColor = false;
+            Place(v.statusChip.rectTransform, 1f, 1f, 200f, ChipH, -CardPad + 8f, -18f);
             return v;
         }
 
         // ===================================================================== shared: content preview card
-        // shadow + card in 'holder': picture / type icon / text paper, duration badge, name, info, Change / Edit / Remove;
-        // empty state with 'emptyHint'
+        // shadow + card in 'holder' (its height decides the picture height: holder - 332): picture / type icon / text paper,
+        // duration badge, name, info, Change / Edit (Tertiary) + Remove (Destructive); empty state with 'emptyHint'
         static MediaPreviewView PreviewCard(RectTransform holder, string emptyHint)
         {
-            ShadowInside(holder, 0.10f);
+            ShadowInside(holder, CardShadow);
             var card = Shape(holder, "Card", ColorRole.Card, ShapeKind.Card);
             Stretch(card.rectTransform);
             var v = holder.gameObject.AddComponent<MediaPreviewView>();
@@ -199,8 +183,8 @@ namespace MediSimVR.EditorTools
             v.previewBackground.useTheme = false;
             prev.rectTransform.anchorMin = new Vector2(0, 0);
             prev.rectTransform.anchorMax = new Vector2(1, 1);
-            prev.rectTransform.offsetMin = new Vector2(32, 300);
-            prev.rectTransform.offsetMax = new Vector2(-32, -32);
+            prev.rectTransform.offsetMin = new Vector2(CardPad - 8f, 300);
+            prev.rectTransform.offsetMax = new Vector2(-(CardPad - 8f), -(CardPad - 8f));
             prev.gameObject.AddComponent<RectMask2D>();
             v.previewImage = Img(prev.transform, "Picture", null, ColorRole.OnPrimary);
             v.previewImage.GetComponent<ThemedColor>().enabled = false;
@@ -213,13 +197,14 @@ namespace MediSimVR.EditorTools
             v.previewIcon.color = new Color(1f, 1f, 1f, 0.92f);
             v.previewIcon.preserveAspect = true;
             v.previewIcon.raycastTarget = false;
-            Place(v.previewIcon.rectTransform, 0.5f, 0.5f, 180f, 180f);
+            Place(v.previewIcon.rectTransform, 0.5f, 0.5f, 150f, 150f);
             var paper = New("TextPaper", prev.transform);
             Stretch(paper, 28, 28, 28, 28);
             var paperBg = Shape(paper, "Bg", ColorRole.Card, ShapeKind.Field);
             Stretch(paperBg.rectTransform);
             paperBg.raycastTarget = false;
-            v.previewText = Txt(paper, "Text", "", TextRole.Body, ColorRole.Text, TextWeight.Regular, TextAlignmentOptions.TopLeft);
+            v.previewText = BodyText(paper, "Text", "");
+            v.previewText.alignment = TextAlignmentOptions.TopLeft;
             v.previewText.enableWordWrapping = true;
             v.previewText.overflowMode = TextOverflowModes.Ellipsis;
             Stretch(v.previewText.rectTransform, 32, 28, 32, 28);
@@ -229,23 +214,27 @@ namespace MediSimVR.EditorTools
             badge.GetComponent<ThemedColor>().enabled = false;
             badge.color = new Color(0f, 0f, 0f, 0.55f);
             badge.raycastTarget = false;
-            Place(badge.rectTransform, 0f, 0f, 130f, 50f, 20f, 20f);
+            Place(badge.rectTransform, 0f, 0f, 124f, 48f, 20f, 20f);
             v.badge = badge.gameObject;
-            v.badgeText = Txt(badge.transform, "Time", "05:30", TextRole.Caption, ColorRole.OnPrimary, TextWeight.SemiBold, TextAlignmentOptions.Center);
+            v.badgeText = SmallLabel(badge.transform, "Time", "05:30", ColorRole.OnPrimary);
+            v.badgeText.alignment = TextAlignmentOptions.Center;
             Stretch(v.badgeText.rectTransform);
 
-            v.nameText = Txt(filled, "Name", "Nature_01.mp4", TextRole.Header, ColorRole.Text, TextWeight.SemiBold);
-            BottomBand(v.nameText.rectTransform, 200f, 72f, 40f);
-            v.infoText = Txt(filled, "Info", "Video  •  245 MB  •  05:30", TextRole.Caption, ColorRole.SubText);
-            BottomBand(v.infoText.rectTransform, 150f, 52f, 40f);
+            v.nameText = CardTitle(filled, "Name", "Nature_01.mp4");
+            BottomBand(v.nameText.rectTransform, 196f, 72f, CardPad + 8f);
+            v.infoText = Secondary(filled, "Info", "Video  •  245 MB  •  05:30");
+            BottomBand(v.infoText.rectTransform, 148f, 48f, CardPad + 8f);
             var actions = New("Actions", filled);
-            BottomBand(actions, 32f, 96f, 32f);
-            var ah = HLayout(actions.gameObject, 20);
+            BottomBand(actions, CardPad, SmallBtnH, CardPad);
+            var ah = HLayout(actions.gameObject, 16);
             ah.childForceExpandWidth = false;
             ah.childAlignment = TextAnchor.MiddleLeft;
-            v.changeButton = SmallAction(actions, "Change", "swap_horiz", "Change", ColorRole.Primary, 250f);
-            v.editButton = SmallAction(actions, "Edit", "edit", "Edit", ColorRole.Primary, 210f);
-            v.removeButton = SmallAction(actions, "Remove", "close", "Remove", ColorRole.Danger, 250f);
+            v.changeButton = Btn(actions, "Change", BtnKind.Tertiary, "swap_horiz", "Change");
+            LE(v.changeButton, SmallBtnH, 240f, 0);
+            v.editButton = Btn(actions, "Edit", BtnKind.Tertiary, "edit", "Edit");
+            LE(v.editButton, SmallBtnH, 190f, 0);
+            v.removeButton = Btn(actions, "Remove", BtnKind.Destructive, "close", "Remove", SmallBtnH);
+            LE(v.removeButton, SmallBtnH, 240f, 0);
 
             // ---- empty
             var empty = New("Empty", card.transform);
@@ -256,79 +245,82 @@ namespace MediSimVR.EditorTools
             ring.raycastTarget = false;
             var rsh = ring.gameObject.AddComponent<ThemedShape>();
             rsh.kind = ShapeKind.Card;
-            Stretch(ring.rectTransform, 32, 32, 32, 32);
+            Stretch(ring.rectTransform, CardPad, CardPad, CardPad, CardPad);
             var ec = Img(empty, "Circle", circle, ColorRole.PrimarySoft);
             ec.raycastTarget = false;
-            Place(ec.rectTransform, 0.5f, 0.5f, 170f, 170f, 0f, 110f);
-            var ei = Icon(ec.transform, "Icon", "add", ColorRole.Primary, 90f);
-            Place(ei.rectTransform, 0.5f, 0.5f, 90f, 90f);
-            var et = Txt(empty, "Title", "No file selected", TextRole.Header, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Place(et.rectTransform, 0.5f, 0.5f, 800f, 80f, 0f, -40f);
-            var es = Txt(empty, "Hint", emptyHint, TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            Place(es.rectTransform, 0.5f, 0.5f, 860f, 60f, 0f, -110f);
+            Place(ec.rectTransform, 0.5f, 0.5f, 150f, 150f, 0f, 100f);
+            var ei = Icon(ec.transform, "Icon", "add", ColorRole.Primary, 80f);
+            Place(ei.rectTransform, 0.5f, 0.5f, 80f, 80f);
+            var et = CardTitle(empty, "Title", "No file selected");
+            et.alignment = TextAlignmentOptions.Center;
+            Place(et.rectTransform, 0.5f, 0.5f, 800f, 72f, 0f, -36f);
+            var es = Secondary(empty, "Hint", emptyHint);
+            es.alignment = TextAlignmentOptions.Center;
+            Place(es.rectTransform, 0.5f, 0.5f, 860f, 56f, 0f, -100f);
             empty.gameObject.SetActive(false);
             return v;
         }
 
         // ===================================================================== shared: playback controls
-        // Control tab: big tiles (2 x 2), mute row, state line
-        static PlaybackControlsView ControlsBig(Transform screen)
+        // Control tab (in its scroll list): status card, big 2 x 2 tiles (Play green, Pause / Resume blue, Stop red),
+        // neutral Mute row; image / text: Show on Quest + Hide
+        static PlaybackControlsView ControlsBig(Transform list)
         {
-            var root = New("Controls", screen);
-            Stretch(root);
+            var root = New("Controls", list);
+            VLayout(root.gameObject, 0, CardGap);
             var v = root.gameObject.AddComponent<PlaybackControlsView>();
 
+            var status = Panel(root, "Status", 96f);
+            var si = Icon(status, "Icon", "info", ColorRole.Primary, 44f);
+            Place(si.rectTransform, 0f, 0.5f, 44f, 44f, CardPad, 0f);
+            v.stateText = RowTitle(status, "State", "");
+            Stretch(v.stateText.rectTransform, CardPad + 64f, 0, CardPad, 0);
+
             var media = New("MediaControls", root);
-            Stretch(media);
+            VLayout(media.gameObject, 0, CardGap);
             v.mediaControls = media.gameObject;
             var grid = New("Buttons", media);
-            TopBand(grid, HeadH + 220f, 640f);
             var g = grid.gameObject.AddComponent<GridLayoutGroup>();
-            g.cellSize = new Vector2(484f, 306f);
-            g.spacing = new Vector2(32f, 28f);
+            g.cellSize = new Vector2(488f, 248f);
+            g.spacing = new Vector2(CardGap, CardGap);
             g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             g.constraintCount = 2;
             g.childAlignment = TextAnchor.UpperCenter;
-            v.playButton = Tile(grid, "Play", "play_arrow", ColorRole.Accent);
-            v.pauseButton = Tile(grid, "Pause", "pause", ColorRole.Primary);
-            v.resumeButton = Tile(grid, "Resume", "replay", ColorRole.Primary);
-            v.stopButton = Tile(grid, "Stop", "stop", ColorRole.Primary);
-            var mute = Shape(media, "MuteRow", ColorRole.Card, ShapeKind.Card);
-            TopBand(mute.rectTransform, HeadH + 890f, 150f);
-            ShadowFor(mute.rectTransform);
-            v.muteSwitch = MuteRowContent(mute.transform);
+            v.playButton = ActionTile(grid, "Play", "play_arrow", ColorRole.Success, true);
+            v.pauseButton = ActionTile(grid, "Pause", "pause", ColorRole.Primary, true);
+            v.resumeButton = ActionTile(grid, "Resume", "replay", ColorRole.Primary, true);
+            v.stopButton = ActionTile(grid, "Stop", "stop", ColorRole.Danger, true);
+            var mute = Panel(media, "MuteRow", 128f);
+            v.muteSwitch = MuteRowContent(mute);
 
             var textC = New("TextControls", root);
-            Stretch(textC);
             v.textControls = textC.gameObject;
-            var tgrid = New("Buttons", textC);
-            TopBand(tgrid, HeadH + 220f, 310f);
-            var tg = tgrid.gameObject.AddComponent<GridLayoutGroup>();
-            tg.cellSize = new Vector2(484f, 306f);
-            tg.spacing = new Vector2(32f, 28f);
+            var tg = textC.gameObject.AddComponent<GridLayoutGroup>();
+            tg.cellSize = new Vector2(488f, 248f);
+            tg.spacing = new Vector2(CardGap, CardGap);
             tg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             tg.constraintCount = 2;
             tg.childAlignment = TextAnchor.UpperCenter;
-            v.showButton = Tile(tgrid, "Show on Quest", "visibility", ColorRole.Accent);
-            v.hideButton = Tile(tgrid, "Hide", "visibility_off", ColorRole.Primary);
+            v.showButton = ActionTile(textC, "Show on Quest", "visibility", ColorRole.Success, true);
+            v.hideButton = ActionTile(textC, "Hide", "visibility_off", ColorRole.Primary, true);
             textC.gameObject.SetActive(false);
-
-            v.stateText = Txt(root, "State", "", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            TopBand(v.stateText.rectTransform, HeadH + 1060f, 60f);
             return v;
         }
 
-        // Play page: progress bar, one row of 4 tiles + mute row (video / audio) or Show / Hide (image / text), state line
+        // Play page (in its scroll list): progress bar, one row of 4 tiles + Mute row (video / audio) or Show / Hide
+        // (image / text), state line
         static PlaybackControlsView ControlsCompact(RectTransform root)
         {
+            VLayout(root.gameObject, 0, 16);
             var v = root.gameObject.AddComponent<PlaybackControlsView>();
 
             var prog = New("Progress", root);
-            TopBand(prog, 0f, 64f, 0f);
+            LE(prog, 56f);
             v.progressRow = prog.gameObject;
-            v.elapsedText = Txt(prog, "Elapsed", "00:00", TextRole.Small, ColorRole.SubText, TextWeight.SemiBold);
+            v.elapsedText = SmallLabel(prog, "Elapsed", "00:00");
             Place(v.elapsedText.rectTransform, 0f, 0.5f, 120f, 50f, 4f, 0f);
-            v.durationText = Txt(prog, "Duration", "00:00", TextRole.Small, ColorRole.SubText, TextWeight.SemiBold, TextAlignmentOptions.MidlineRight);
+            v.durationText = SmallLabel(prog, "Duration", "00:00");
+            v.durationText.alignment = TextAlignmentOptions.MidlineRight;
             Place(v.durationText.rectTransform, 1f, 0.5f, 120f, 50f, -4f, 0f);
             var track = Shape(prog, "Track", ColorRole.Divider, ShapeKind.Pill);
             track.GetComponent<ThemedShape>().pillHeight = 16f;
@@ -340,6 +332,7 @@ namespace MediSimVR.EditorTools
             var fill = Shape(track.transform, "Fill", ColorRole.Primary, ShapeKind.Pill);
             fill.GetComponent<ThemedShape>().pillHeight = 16f;
             fill.raycastTarget = false;
+            Gradient(fill);
             fill.rectTransform.anchorMin = Vector2.zero;
             fill.rectTransform.anchorMax = new Vector2(0.3f, 1f);
             fill.rectTransform.offsetMin = Vector2.zero;
@@ -347,52 +340,49 @@ namespace MediSimVR.EditorTools
             v.progressFill = fill.rectTransform;
 
             var media = New("MediaControls", root);
-            TopBand(media, 80f, 230f, 0f);
+            VLayout(media.gameObject, 0, 16);
             v.mediaControls = media.gameObject;
             var grid = New("Buttons", media);
-            TopBand(grid, 0f, 110f, 0f);
             var g = grid.gameObject.AddComponent<GridLayoutGroup>();
-            g.cellSize = new Vector2(241f, 110f);
-            g.spacing = new Vector2(12f, 12f);
+            g.cellSize = new Vector2(238f, 120f);
+            g.spacing = new Vector2(16f, 16f);
             g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             g.constraintCount = 4;
             g.childAlignment = TextAnchor.UpperCenter;
-            v.playButton = ActionTile(grid, "Play", "play_arrow");
+            v.playButton = ActionTile(grid, "Play", "play_arrow", ColorRole.Success);
             v.pauseButton = ActionTile(grid, "Pause", "pause");
             v.resumeButton = ActionTile(grid, "Resume", "replay");
-            v.stopButton = ActionTile(grid, "Stop", "stop");
-            var mute = Shape(media, "MuteRow", ColorRole.Card, ShapeKind.Card);
-            TopBand(mute.rectTransform, 126f, 104f, 0f);
-            ShadowFor(mute.rectTransform, 0.08f);
-            v.muteSwitch = MuteRowContent(mute.transform);
+            v.stopButton = ActionTile(grid, "Stop", "stop", ColorRole.Danger);
+            var mute = Panel(media, "MuteRow", 104f);
+            v.muteSwitch = MuteRowContent(mute);
 
             var textC = New("TextControls", root);
-            TopBand(textC, 80f, 110f, 0f);
             v.textControls = textC.gameObject;
             var tg = textC.gameObject.AddComponent<GridLayoutGroup>();
-            tg.cellSize = new Vector2(494f, 110f);
-            tg.spacing = new Vector2(12f, 12f);
+            tg.cellSize = new Vector2(492f, 120f);
+            tg.spacing = new Vector2(16f, 16f);
             tg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             tg.constraintCount = 2;
             tg.childAlignment = TextAnchor.UpperCenter;
-            v.showButton = ActionTile(textC, "Show on Quest", "visibility");
+            v.showButton = ActionTile(textC, "Show on Quest", "visibility", ColorRole.Success);
             v.hideButton = ActionTile(textC, "Hide", "visibility_off");
             textC.gameObject.SetActive(false);
 
-            v.stateText = Txt(root, "State", "", TextRole.Caption, ColorRole.SubText, TextWeight.Regular, TextAlignmentOptions.Center);
-            TopBand(v.stateText.rectTransform, 326f, 50f, 0f);
+            v.stateText = Secondary(root, "State", "");
+            v.stateText.alignment = TextAlignmentOptions.Center;
+            LE(v.stateText, 50f);
             return v;
         }
 
-        // icon + "Mute" + switch inside a row card
+        // icon + "Mute" + switch inside a row card (neutral: Mute is not a destructive action)
         static ToggleSwitch MuteRowContent(Transform row)
         {
-            var mi = Icon(row, "Icon", "volume_off", ColorRole.Text, 64f);
-            Place(mi.rectTransform, 0f, 0.5f, 64f, 64f, 40f, 0f);
-            var mt = Txt(row, "Label", "Mute", TextRole.Body, ColorRole.Text, TextWeight.SemiBold);
-            Stretch(mt.rectTransform, 140, 0, 220, 0);
+            var mi = Icon(row, "Icon", "volume_off", ColorRole.Text, IconSize);
+            Place(mi.rectTransform, 0f, 0.5f, IconSize, IconSize, CardPad, 0f);
+            var mt = RowTitle(row, "Label", "Mute");
+            Stretch(mt.rectTransform, CardPad + IconSize + 24f, 0, 200, 0);
             var sw = Switch(row, "MuteSwitch");
-            Place((RectTransform)sw.transform, 1f, 0.5f, 120f, 68f, -40f, 0f);
+            Place((RectTransform)sw.transform, 1f, 0.5f, 120f, 68f, -CardPad, 0f);
             return sw;
         }
     }

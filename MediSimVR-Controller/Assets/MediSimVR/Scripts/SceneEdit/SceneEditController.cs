@@ -13,6 +13,7 @@ namespace MediSimVR
         public readonly Camera Cam;
 
         public GizmoTool Tool = GizmoTool.Move;
+        public bool SelectOnly;      // Select tool: no gizmo, a tap only selects (the outline still shows the selection)
         public bool Global;          // false = Local
         public bool CenterPivot;     // false = Pivot
         public SnapSettings Snap = new SnapSettings { on = false, move = 0.1f, rotate = 15f, scale = 0.1f };
@@ -40,7 +41,7 @@ namespace MediSimVR
         {
             Gizmo.SetTool(Tool);
             var o = Doc.Selected;
-            if (o == null) { Gizmo.Place(Vector3.zero, Quaternion.identity, false, false); return; }
+            if (o == null || SelectOnly) { Gizmo.Place(Vector3.zero, Quaternion.identity, false, false); return; }
             Transform root = World.transform;
             Vector3 origin = root.TransformPoint(CenterPivot ? o.CenterPoint : o.pose.pos);
             bool local = !Global || Tool == GizmoTool.Scale; // scale handles always follow the object (like Unity)
@@ -53,7 +54,7 @@ namespace MediSimVR
         public bool TryBeginGizmo(Vector2 px, float viewHeight)
         {
             var o = Doc.Selected;
-            if (o == null || o.locked || drag != null) return false;
+            if (o == null || o.locked || drag != null || SelectOnly) return false;
             UpdateGizmo();
             var h = Gizmo.Pick(px, Tolerance(viewHeight));
             if (h == GizmoHandle.None) return false;
@@ -92,7 +93,7 @@ namespace MediSimVR
         public bool TryBeginPinch(Vector2 px)
         {
             var o = Doc.Selected;
-            if (o == null || o.locked || drag != null) return false;
+            if (o == null || o.locked || drag != null || SelectOnly) return false;   // Select tool: two fingers = camera only
             string id;
             if (!World.Pick(Cam.ScreenPointToRay(new Vector3(px.x, px.y, 0f)), out id) || id != o.id) return false;
             if (!Doc.BeginEdit(o, "Scale")) return false;

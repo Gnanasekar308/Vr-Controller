@@ -11,7 +11,6 @@ namespace MediSimVR
         public float speed = 7f;
 
         private Color speakColor;
-        private bool hasColor;
 
         public void Set(bool on)
         {
@@ -24,7 +23,7 @@ namespace MediSimVR
         private void Update()
         {
             if (!speaking || target == null) return;
-            if (!hasColor) { speakColor = DemoConfig.Hex(DemoConfig.SpeakingColor); hasColor = true; }
+            speakColor = ThemeManager.Get(DemoConfig.SpeakingRole);   // follows the theme
             float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * speed);
             target.rectTransform.localScale = Vector3.one * (1f + 0.22f * k);
             target.color = Color.Lerp(speakColor, Color.white, 0.25f * k);

@@ -26,7 +26,7 @@ namespace MediSimVR
             float h = Mathf.Max(120f, textH + 86f);
             bubble.sizeDelta = new Vector2(w, h);
             layout.preferredHeight = h;
-            background.color = mine ? DemoConfig.Hex(DemoConfig.MyBubbleColor) : ThemeManager.Get(ColorRole.Field);
+            background.color = mine ? ThemeManager.Get(DemoConfig.MyBubbleRole) : ThemeManager.Get(ColorRole.Field);
             Color fg = mine ? Color.white : ThemeManager.Get(ColorRole.Text);
             messageText.color = fg;
             fromText.color = mine ? new Color(1f, 1f, 1f, 0.8f) : ThemeManager.Get(ColorRole.SubText);

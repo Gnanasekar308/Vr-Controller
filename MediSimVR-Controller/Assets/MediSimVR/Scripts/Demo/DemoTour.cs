@@ -101,6 +101,9 @@ namespace MediSimVR
 
             // ----- Home > Control Mode > Session -----
             nav.Tab(ScreenId.Home); yield return Shot("home");
+            bool settingsTab = false;
+            foreach (var item in nav.navItems) if (item.target == ScreenId.Settings) settingsTab = true;
+            Check(nav.navItems.Count == 6 && !settingsTab, "bottom navigation: 6 tabs, Settings is in the Home header");
             Click(home.controlModeButton);
             Expect(ScreenId.Session, "Control Mode opens the Session screen");
             yield return Shot("session_start");
@@ -189,6 +192,19 @@ namespace MediSimVR
             Click(scene.inspectorButton); yield return Shot("scene_inspector");
             Click(scene.objectsButton); yield return Shot("scene_objects");
             Click(scene.hierarchyClose);
+            // Select tool: no gizmo; then back to Move
+            scene.toolSeg.Select(SceneScreen.SelectToolIndex, true);
+            scene.Edit.UpdateGizmo();
+            Check(!scene.gizmo.Visible, "Select tool hides the gizmo");
+            scene.toolSeg.Select(SceneScreen.ToolIndex(GizmoTool.Move), true);
+            scene.Edit.UpdateGizmo();
+            Check(scene.gizmo.Visible, "Move tool shows the gizmo again");
+            // full view: the viewport takes the screen; Android back leaves it
+            Click(scene.expandButton);
+            Check(scene.FullView, "the expand button opens the full view");
+            yield return Shot("scene_full_view");
+            nav.Back();
+            Check(!scene.FullView && nav.Current == ScreenId.Scene, "back leaves the full view and stays on Scene");
 
             // ----- end -> summary -----
             nav.Tab(ScreenId.Session);
@@ -227,10 +243,18 @@ namespace MediSimVR
             nav.Tab(ScreenId.Send); yield return Shot("send");
             nav.Tab(ScreenId.Control); yield return Shot("control");
 
-            // ----- settings, notifications, customization -----
-            nav.Tab(ScreenId.Settings); yield return Shot("settings");
+            // ----- settings (Home header), notifications, customization -----
+            nav.Tab(ScreenId.Home);
+            Click(home.settingsButton);
+            Expect(ScreenId.Settings, "the Settings icon in the Home header opens Settings");
+            yield return Shot("settings");
             nav.Push(ScreenId.EditApp); yield return Shot("edit_app");
-            nav.Tab(ScreenId.Home); nav.Push(ScreenId.Notifications); yield return Shot("notifications");
+            nav.Back();
+            Expect(ScreenId.Settings, "back from Edit App goes to Settings");
+            var settings = nav.Get<SettingsScreen>();
+            Click(settings.backButton);
+            Expect(ScreenId.Home, "the Settings back button goes Home");
+            Click(home.bellButton); yield return Shot("notifications");
 
             // ----- every theme preset on the new screens: Quest list + Play page (host) -----
             if (ses != null)
@@ -243,6 +267,7 @@ namespace MediSimVR
             {
                 if (preset == "Custom") continue;
                 ThemeManager.Preview(ThemeData.FromPreset(preset)); // not saved
+                nav.Tab(ScreenId.Home); yield return Shot("theme_" + preset.ToLowerInvariant() + "_home");
                 nav.Tab(ScreenId.Session); nav.Push(ScreenId.QuestList); yield return Shot("theme_" + preset.ToLowerInvariant() + "_quest_list");
                 nav.Push(ScreenId.Play); yield return Shot("theme_" + preset.ToLowerInvariant() + "_play");
             }

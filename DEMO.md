@@ -1,6 +1,7 @@
 # MediSimVR phone app: 5-minute demo
 
-Demo mode is ON (Settings > Demo mode). Everything runs on sample data: no Quest, PC or Wi-Fi needed.
+Demo mode is ON (Settings > Demo mode; **Settings = gear icon at the top left of Home**). Everything runs on sample
+data: no Quest, PC or Wi-Fi needed. Bottom bar: Home, Devices, Send, Control, Session, Scene.
 Sample Quests: Quest-A1B2 (in use: plays Anatomy_Heart_360.mp4), Quest-C3D4, Quest-E5F6 (offline), Quest-G7H8.
 Sample Quests, files, chat messages and replies, demo texts, session colours and timings live in one file:
 `Assets/MediSimVR/Scripts/Demo/DemoConfig.cs` (screen titles and button labels are in the UI builder).
@@ -10,7 +11,8 @@ Back always works the same (arrow at the top left or the Android back button):
 Play page > Quest list (Host) or Session (Player) > Home.
 
 ## 0:00 Home (15 s)
-1. Show **Home**: app name, **Control Mode**, Receiver Mode, and the chip **"Mode: Not in a session"** with the **DEMO** badge.
+1. Show **Home**: Settings (gear, top left) and Notifications (bell, top right), app name, **Control Mode**,
+   Receiver Mode, and the chip **"Mode: Not in a session"** with the **DEMO** badge.
 2. Say: "The phone controls every Quest headset in the training room."
 
 ## 0:15 Control Mode > Session (15 s)
@@ -38,6 +40,9 @@ Play page > Quest list (Host) or Session (Player) > Home.
 15. Back again to **Session**: the card **"Live host session"** is there. Tap it: the live dashboard
     (**"● Recording on PC-LAB1 00:12:3x"**, live voice + who is speaking, timeline of everything you just did).
 16. Tap **Text** > **"Look at the patient"**: the Quests reply in chat bubbles after 2 to 4 seconds. Close with **X**.
+    Optional (30 s): tap **Scene**: the Live Scene viewport ("DEMO SCENE: sample objects" badge; with a real PC /
+    Quest it shows the objects of the running Unity scene). Tap the cube, drag an arrow; tap the **expand** button
+    (bottom right of the view) for the full view, Android back to leave it. Back to **Session**.
 17. Tap **End session** > **End session**: the **Summary** (duration, Quests, event counts,
     **"Saved on PC: MediSimVR_Sessions/<date>_host.json"**).
 
@@ -50,11 +55,12 @@ Play page > Quest list (Host) or Session (Player) > Home.
 
 ## 4:45 Look and feel (15 s)
 22. The **Devices**, **Send** and **Control** tabs use the same Quest list, preview card and buttons.
-23. **Settings** > **App Customization**: switch the theme (Default, Dark, Light, Ocean, Purple); every screen follows.
+23. **Home** > gear icon (**Settings**) > **App Customization**: switch the theme (Default, Dark, Light, Ocean, Purple);
+    every screen follows. Back arrow > Settings > Home.
 
 ## If something goes wrong
 - Toast "Select at least one online Quest": tap **Select all online** on the Quest list.
 - To restart the demo from zero: close the app from the recent-apps list and open it again.
-- Demo mode OFF: Settings > **Demo mode** > confirm. The app restarts with the real network (no sample Quests).
+- Demo mode OFF: Home > gear (Settings) > **Demo mode** > confirm. The app restarts with the real network (no sample Quests).
   HOST / PLAYER and the Play page then use the real Quests; the live dashboard (voice, chat, timeline) needs the
   backend and says so. Turn Demo mode ON the same way to go back.

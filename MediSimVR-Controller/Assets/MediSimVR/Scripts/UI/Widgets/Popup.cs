@@ -14,6 +14,8 @@ namespace MediSimVR
         public TMP_Text title, message, okLabel, cancelLabel;
         public TMP_InputField input;
         public Button okButton, cancelButton, dimButton;
+        public ThemedColor okColor;       // OK background: Primary (gradient) or Danger (destructive)
+        public UIGradient okGradient;
 
         Action onOk;
         Action<string> onText;
@@ -32,9 +34,12 @@ namespace MediSimVR
             root.SetActive(false);
         }
 
+        // destructive = the OK button is solid red (End session, Leave, Switch role); otherwise the primary gradient
         public void Show(string t, string msg, string ok = "OK", Action okAct = null, string cancel = null,
-            string inputHint = null, Action<string> textAct = null)
+            string inputHint = null, Action<string> textAct = null, bool destructive = false)
         {
+            if (okColor != null) { okColor.role = destructive ? ColorRole.Danger : ColorRole.Primary; okColor.Apply(); }
+            if (okGradient != null) okGradient.enabled = !destructive;
             title.text = t;
             message.text = msg;
             okLabel.text = ok;
