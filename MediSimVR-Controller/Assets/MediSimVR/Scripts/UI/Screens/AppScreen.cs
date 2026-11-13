@@ -52,8 +52,11 @@ namespace MediSimVR
         // Android back: true = handled here (e.g. a sheet was closed), false = go back a screen
         public virtual bool HandleBack() { return false; }
 
-        // fixed "up" screen of the Control Mode flow (Play page -> Quest list / Session); false = use the back stack
-        public virtual bool TryGetParent(out ScreenId parent) { parent = ScreenId.Home; return false; }
+        // fixed "up" screen (e.g. Login -> Role selection); false = use the back stack
+        public virtual bool TryGetParent(out ScreenId parent) { parent = ScreenId.Dashboard; return false; }
+
+        // false = no bottom bar on this screen (before login, the Live session in landscape)
+        public virtual bool ShowsNav { get { return true; } }
 
         // clone list rows from an inactive template; keeps the template itself
         protected static List<T> Fill<T>(T template, int count) where T : Component

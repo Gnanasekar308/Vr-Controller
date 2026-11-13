@@ -6,13 +6,23 @@ namespace MediSimVR
 {
     public class SettingsScreen : AppScreen
     {
-        public Button backButton, demoRow, customizationRow, networkRow, connectionRow, notificationRow, aboutRow;
-        public TMP_Text demoSub, notificationSub, aboutSub;
+        public Button demoRow, customizationRow, networkRow, connectionRow, notificationRow, aboutRow, logoutRow;
+        public TMP_Text demoSub, notificationSub, aboutSub, accountName, accountSub, logoutSub;
 
         public override void Init(Navigator n)
         {
             base.Init(n);
-            if (backButton != null) backButton.onClick.AddListener(() => nav.Back());   // back to Home (Settings opens from the Home header)
+            // Logout: back to Role selection (a live session ends first)
+            logoutRow.onClick.AddListener(() => nav.popup.Show("Log out?",
+                Classroom.LiveActive ? "The live session " + Classroom.Live.Name + " ends for you." : "You return to the role selection.",
+                "Log out", () =>
+                {
+                    var ses = AppRoot.Session;
+                    if (ses != null && ses.Active) ses.End();
+                    Classroom.Logout();
+                    nav.Tab(ScreenId.RoleSelect);
+                    nav.Say("Logged out");
+                }, "Cancel", destructive: true));
             demoRow.onClick.AddListener(() =>
             {
                 bool on = AppRoot.Demo;
@@ -41,6 +51,9 @@ namespace MediSimVR
             demoSub.text = AppRoot.Demo ? "ON: sample Quests and sessions, no network" : "OFF: real Quests on this Wi-Fi";
             notificationSub.text = Svc.NotificationsEnabled ? "Enabled" : "Disabled";
             aboutSub.text = "MediSimVR v" + Application.version;
+            accountName.text = Classroom.UserName.Length > 0 ? Classroom.UserName : "Not logged in";
+            accountSub.text = (Classroom.IsAdmin ? "Admin" : Classroom.IsStudent ? "Student" : "-") + (AppRoot.Demo ? "  •  demo account" : "");
+            logoutSub.text = "Back to the role selection";
         }
     }
 }

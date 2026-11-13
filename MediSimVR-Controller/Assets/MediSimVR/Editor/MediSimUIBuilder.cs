@@ -59,6 +59,7 @@ namespace MediSimVR.EditorTools
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0f;
             canvasGo.AddComponent<GraphicRaycaster>();
+            canvasGo.AddComponent<OrientationScaler>();   // landscape (Live session): 2340 x 1080 reference
 
             var bg = Img(canvasGo.transform, "Background", null, ColorRole.Background);
             Stretch(bg.rectTransform);
@@ -87,22 +88,27 @@ namespace MediSimVR.EditorTools
             phone.audioSource.playOnAwake = false;
             root.navigator = nav;
 
-            nav.screens.Add(BuildHome(screensRoot));
+            nav.screens.Add(BuildSplash(screensRoot));
+            nav.screens.Add(BuildRoleSelect(screensRoot));
+            nav.screens.Add(BuildLogin(screensRoot));
+            nav.screens.Add(BuildDashboard(screensRoot));
+            nav.screens.Add(BuildMeetings(screensRoot));
+            nav.screens.Add(BuildMeetingCreate(screensRoot));
+            nav.screens.Add(BuildMeetingDetails(screensRoot));
+            nav.screens.Add(BuildLive(screensRoot));
+            nav.screens.Add(BuildReport(screensRoot));
             nav.screens.Add(BuildDevices(screensRoot));
             nav.screens.Add(BuildSend(screensRoot));
             nav.screens.Add(BuildControl(screensRoot, phone));
             nav.screens.Add(BuildScene(screensRoot));
-            nav.screens.Add(BuildSessionStart(screensRoot));
-            nav.screens.Add(BuildSessionHost(screensRoot));
-            nav.screens.Add(BuildSessionPlayerPick(screensRoot));
-            nav.screens.Add(BuildSessionPlayer(screensRoot));
-            nav.screens.Add(BuildSessionSummary(screensRoot));
             nav.screens.Add(BuildSettings(screensRoot));
             nav.screens.Add(BuildNotifications(screensRoot));
             nav.screens.Add(BuildEditApp(screensRoot));
             for (int i = 1; i < nav.screens.Count; i++) nav.screens[i].gameObject.SetActive(false);
 
             BuildNav(safe, nav);
+            nav.screensRoot = screensRoot;
+            nav.navHeight = NavH;
             var overlay = New("Overlay", safe);
             Stretch(overlay);
             nav.toast = BuildToast(overlay);
@@ -667,49 +673,6 @@ namespace MediSimVR.EditorTools
         }
 
         // ===================================================================== screens
-        static AppScreen BuildHome(Transform parent)
-        {
-            var s = MakeScreen<HomeScreen>(parent, "Home", ScreenId.Home);
-            Wave(s.transform);
-            var hdr = New("Header", s.transform);
-            TopBand(hdr, 0f, HeadH, 0f);
-            // header: Settings (left) and Notifications (right), the same icon button design
-            s.settingsButton = CircleButton(hdr, "Settings", "settings", 0f, 48f, 118f);
-            s.bellButton = CircleButton(hdr, "Bell", "notifications", 1f, -48f, 118f);
-            var badge = Img(s.bellButton.transform, "Badge", circle, ColorRole.Danger);
-            Place(badge.rectTransform, 0.5f, 0.5f, 44f, 44f, 34f, 34f);
-            badge.raycastTarget = false;
-            s.badge = badge.gameObject;
-            s.badgeText = Txt(badge.transform, "Count", "1", TextRole.Small, ColorRole.OnPrimary, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            Stretch(s.badgeText.rectTransform);
-
-            var tile = Shape(s.transform, "LogoTile", ColorRole.Primary, ShapeKind.Card);
-            Gradient(tile);
-            Place(tile.rectTransform, 0.5f, 1f, 240f, 240f, 0f, -230f);
-            tile.raycastTarget = false;
-            ShadowFor(tile.rectTransform, 0.30f, ColorRole.Primary);
-            var logo = Img(tile.transform, "Logo", logoWhite, ColorRole.OnPrimary);
-            logo.preserveAspect = true;
-            logo.raycastTarget = false;
-            Stretch(logo.rectTransform, 42, 42, 42, 42);
-
-            var title = Txt(s.transform, "AppName", "MediSimVR", TextRole.Title, ColorRole.Text, TextWeight.SemiBold, TextAlignmentOptions.Center);
-            TopBand(title.rectTransform, 500f, 90f);
-            var sub = Txt(s.transform, "Tagline", "Quest Media Control", TextRole.Body, ColorRole.Primary, TextWeight.Regular, TextAlignmentOptions.Center);
-            TopBand(sub.rectTransform, 592f, 60f);
-
-            // the same ActionCard component as HOST / PLAYER on the Session screen
-            s.controlModeButton = ActionCard(s.transform, "ControlMode", 716f, true, "sports_esports", "Control Mode", "Control Quest device(s)");
-            s.receiverModeButton = ActionCard(s.transform, "ReceiverMode", 716f + HeroH + CardGap, false, "headphones", "Receiver Mode", "Run as Receiver (for Quest)");
-            GameObject demoBadge;
-            Image modeChip;
-            s.modeText = ModeChip(s.transform, 716f + 2f * (HeroH + CardGap) + 8f, out demoBadge, out modeChip);
-            s.demoBadge = demoBadge;
-            modeChip.raycastTarget = true;
-            s.modeButton = MakeButton(modeChip.gameObject, modeChip);
-            return s;
-        }
-
         // Devices tab = step 1 of the host flow: filter chips (with counts), select all online, Quest cards, Connect
         static AppScreen BuildDevices(Transform parent)
         {
@@ -1208,11 +1171,21 @@ namespace MediSimVR.EditorTools
             Wave(s.transform);
             TextMeshProUGUI title, subT;
             Button backB;
-            Header(s.transform, "Settings", "App, network and connection", true, out title, out subT, out backB);
-            s.backButton = backB;   // opened from the Home header
+            Header(s.transform, "Settings", "Account, app, network and connection", false, out title, out subT, out backB);
 
             var list = ScrollList(s.transform, "List", HeadH + 4f, 20f);
             TextMeshProUGUI sub;
+            // account: who is logged in + Log out (back to the role selection)
+            TextMeshProUGUI accName;
+            SettingRow(list, "cast_connected", "Account", "Admin", out sub);
+            var accRow = list.GetChild(list.childCount - 1);
+            accName = accRow.Find("Card/Title").GetComponent<TextMeshProUGUI>();
+            accRow.Find("Card").GetComponent<Button>().enabled = false;   // information only
+            Object.DestroyImmediate(accRow.Find("Card/Chevron").gameObject);
+            s.accountName = accName;
+            s.accountSub = sub;
+            s.logoutRow = SettingRow(list, "swap_horiz", "Log out", "Back to the role selection", out sub);
+            s.logoutSub = sub;
             s.demoRow = SettingRow(list, "smart_display", "Demo mode", "ON: sample Quests and sessions, no network", out sub);
             s.demoSub = sub;
             s.customizationRow = SettingRow(list, "palette", "App Customization", "Color, Text, Buttons, Layout", out sub);
@@ -1450,6 +1423,7 @@ namespace MediSimVR.EditorTools
         static void BuildNav(Transform safe, Navigator nav)
         {
             var holder = New("BottomNav", safe);
+            nav.navBar = holder.gameObject;
             holder.anchorMin = new Vector2(0, 0);
             holder.anchorMax = new Vector2(1, 0);
             holder.pivot = new Vector2(0.5f, 0);
@@ -1461,10 +1435,11 @@ namespace MediSimVR.EditorTools
             var items = New("Items", bar.transform);
             Stretch(items, 12, 10, 12, 10);
             HLayout(items.gameObject, 8);
-            // six tabs: the flow (Home > Session > Devices > Send > Control) + Scene; Settings opens from the Home header
-            string[] labels = { "Home", "Session", "Devices", "Send", "Control", "Scene" };
-            string[] icons = { "home", "cast_connected", "vr_headset", "send", "tune", "view_in_ar" };
-            ScreenId[] ids = { ScreenId.Home, ScreenId.Session, ScreenId.Devices, ScreenId.Send, ScreenId.Control, ScreenId.Scene };
+            // role-based tabs: Admin = all five; Student = Dashboard, Meetings, Settings (Live and Devices are admin only)
+            string[] labels = { "Dashboard", "Meetings", "Live", "Devices", "Settings" };
+            string[] icons = { "home", "view_agenda", "smart_display", "vr_headset", "settings" };
+            ScreenId[] ids = { ScreenId.Dashboard, ScreenId.Meetings, ScreenId.Live, ScreenId.Devices, ScreenId.Settings };
+            bool[] adminOnly = { false, false, true, true, false };
             for (int i = 0; i < labels.Length; i++)
             {
                 var hit = Img(items, labels[i], null, ColorRole.Card, 0f);
@@ -1480,7 +1455,7 @@ namespace MediSimVR.EditorTools
                 var t = Txt(hit.transform, "Label", labels[i], TextRole.Small, ColorRole.SubText, TextWeight.SemiBold, TextAlignmentOptions.Center);
                 t.GetComponent<ThemedText>().applyColor = false;
                 BottomBand(t.rectTransform, 14f, 44f, 0f);
-                nav.navItems.Add(new NavItem { target = ids[i], button = b, icon = ic, label = t, highlight = hl });
+                nav.navItems.Add(new NavItem { target = ids[i], button = b, icon = ic, label = t, highlight = hl, adminOnly = adminOnly[i] });
             }
         }
 

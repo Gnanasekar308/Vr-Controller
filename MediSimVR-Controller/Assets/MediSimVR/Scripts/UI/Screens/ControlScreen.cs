@@ -57,7 +57,7 @@ namespace MediSimVR
             base.Init(n);
             controls.Init();
             controls.Acted += OnActed;
-            changeTargetButton.onClick.AddListener(() => nav.Push(ControlFlow.IsPlayer ? ScreenId.SessionPlayerPick : ScreenId.Devices));
+            changeTargetButton.onClick.AddListener(() => nav.Push(ScreenId.Devices));
             fileButton.onClick.AddListener(() => nav.Push(ScreenId.Send));
 
             phoneSoundSwitch.Changed += on => { SessionLog.PhoneSound = on; phone.SetMute(!on); if (!on) PhoneSpeech.Stop(); };
@@ -221,7 +221,8 @@ namespace MediSimVR
                 var q = ControlFlow.MyQuest(Svc);
                 targetText.text = "My Quest: " + (q == null ? "no Quest online" : q.Name + (q.Online ? "" : " (offline)"));
             }
-            else targetText.text = t.Count == 0 ? "No Quest selected" : "Playing on: " + Names(t);
+            // more than 2 Quests: the first + count, so the line fits next to Change
+            else targetText.text = t.Count == 0 ? "No Quest selected" : "Playing on: " + (t.Count > 2 ? t[0].Name + " +" + (t.Count - 1) : Names(t));
 
             var f = Svc.ControlFile;
             fileName.text = f != null ? f.Name : "No content: tap to choose";

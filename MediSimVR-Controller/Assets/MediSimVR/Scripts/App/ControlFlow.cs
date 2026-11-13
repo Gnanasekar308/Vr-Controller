@@ -2,14 +2,13 @@ using UnityEngine;
 
 namespace MediSimVR
 {
-    // State of the Control Mode flow: Home > Control Mode > Session (HOST / PLAYER) > Quest list (host) > Play page.
-    // The role comes from the session service when the app has one (demo mode); without it (demo off: no session backend
-    // yet) it is kept here, so the flow itself also works with the real controller service.
-    // "My Quest" (player) = the Quest last used as player if it is online, else the first online Quest.
+    // Role of the Devices > Send > Control screens: Host = admin in a session, Player = student in a session, None
+    // outside a session. From the session service when the app has one (demo mode); without it (demo off: no session
+    // backend yet) from the live session of Classroom, so the screens also work with the real controller service.
+    // "My Quest" (player) = the session's Quest, else the Quest last used as player if it is online, else the first online.
     public static class ControlFlow
     {
         public const string MyQuestKey = "msvr_my_quest";
-        private static SessionRole localRole;
 
         public static SessionRole Role
         {
@@ -17,17 +16,12 @@ namespace MediSimVR
             {
                 var s = AppRoot.Session;
                 if (s != null) return s.Active ? s.Role : SessionRole.None;
-                return localRole;
+                if (!Classroom.LiveActive) return SessionRole.None;
+                return Classroom.IsStudent ? SessionRole.Player : SessionRole.Host;
             }
         }
 
         public static bool IsPlayer { get { return Role == SessionRole.Player; } }
-
-        // app start / demo switch (statics survive a scene reload)
-        public static void Reset() { localRole = SessionRole.None; }
-
-        // host without a session service (the session service path is handled by the Session screen: other-host message)
-        public static void StartLocalHost() { localRole = SessionRole.Host; }
 
         public static QuestDevice MyQuest(IControllerService svc)
         {
@@ -44,18 +38,6 @@ namespace MediSimVR
                 if (first == null && d.Online) first = d;
             }
             return first;
-        }
-
-        // play as player on this Quest (online): remember it, the controls act on it only, join the session as player
-        public static void UsePlayerQuest(IControllerService svc, QuestDevice d)
-        {
-            if (svc == null || d == null) return;
-            PlayerPrefs.SetString(MyQuestKey, d.Id);
-            PlayerPrefs.Save();
-            SelectOnly(svc, d);
-            var s = AppRoot.Session;
-            if (s == null) { localRole = SessionRole.Player; return; }
-            if (!(s.Active && s.Role == SessionRole.Player && s.PlayerDeviceId == d.Id)) s.StartPlayer(d.Id);
         }
 
         // only d is selected (d == null: nothing; an offline d is never a target: SelectedOnline skips it)

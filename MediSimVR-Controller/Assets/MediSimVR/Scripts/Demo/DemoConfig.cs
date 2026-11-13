@@ -19,17 +19,6 @@ namespace MediSimVR
 
         // ---------- texts ----------
         public const string DemoBadge = "DEMO";
-        public const string ModeNone = "Not in a session";
-        public const string ModeHost = "Host";
-        public const string ModePlayer = "Player";
-        public const string SessionSubtitle = "Run a live training session";
-        public const string HostCardTitle = "HOST";
-        public const string HostCardText = "Control all Quests in the room";
-        public const string PlayerCardTitle = "PLAYER";
-        public const string PlayerCardText = "Play on your own Quest";
-        public const string BackendMissing = "Live voice, chat and the session timeline need the MediSimVR backend (connected tomorrow).\nTurn on Demo mode in Settings to try them now.";
-        public const string DashboardHint = "Voice, chat and timeline: tap to open";
-        public const string HostActiveTitle = "Host already active";
         public const string HostActiveText = "Dr. Priya's phone is hosting this room right now.\nTake over as host?";
         public const string RecorderName = "PC-LAB1";
         public const string SavedFileFormat = "MediSimVR_Sessions/{0:yyyy-MM-dd_HHmm}_host.json";
@@ -117,7 +106,69 @@ namespace MediSimVR
             new Quest { Id = "q2", Name = "Quest-C3D4", Ip = "192.168.1.22", Online = true, Battery = 64, State = DeviceState.Idle, FileId = "" },
             new Quest { Id = "q3", Name = "Quest-E5F6", Ip = "192.168.1.23", Online = false, Battery = -1, State = DeviceState.Idle, FileId = "" },
             new Quest { Id = "q4", Name = "Quest-G7H8", Ip = "192.168.1.24", Online = true, Battery = 92, State = DeviceState.Idle, FileId = "", Muted = true },
+            new Quest { Id = "q5", Name = "Quest-J9K1", Ip = "192.168.1.25", Online = true, Battery = 71, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q6", Name = "Quest-M2N3", Ip = "192.168.1.26", Online = true, Battery = 58, State = DeviceState.Idle, FileId = "" },
         };
+
+        // ---------- classroom: app start, login, people, meetings, live metrics ----------
+        public const float SplashSeconds = 1.5f;
+        public const string AppTagline = "VR Medical Training";
+        public const string RoleTitle = "Who is using this phone?";
+        public const string AdminCardTitle = "ADMIN";
+        public const string AdminCardText = "Create meetings and run live sessions";
+        public const string StudentCardTitle = "STUDENT";
+        public const string StudentCardText = "Join your class on a Quest";
+        // mock login: any email + password works; the quick buttons fill these
+        public const string AdminName = "Dr. Anitha Rao";
+        public const string AdminEmail = "anitha.rao@medisim.demo";
+        public const string DemoPassword = "demo1234";
+        public const int DemoStudentIndex = 0;   // "Demo student" logs in as Students[0]
+
+        public class Student
+        {
+            public string Id, Name, Email;
+            public float Attention, Engagement, Emotion;   // base values (0-100) the live metrics move around
+        }
+
+        public static readonly Student[] Students =
+        {
+            new Student { Id = "s1", Name = "Arjun Kumar", Email = "arjun@medisim.demo", Attention = 82, Engagement = 76, Emotion = 74 },
+            new Student { Id = "s2", Name = "Divya Menon", Email = "divya@medisim.demo", Attention = 90, Engagement = 85, Emotion = 80 },
+            new Student { Id = "s3", Name = "Karthik Raj", Email = "karthik@medisim.demo", Attention = 64, Engagement = 58, Emotion = 61 },
+            new Student { Id = "s4", Name = "Sneha Iyer", Email = "sneha@medisim.demo", Attention = 77, Engagement = 81, Emotion = 70 },
+            new Student { Id = "s5", Name = "Rahul Verma", Email = "rahul@medisim.demo", Attention = 55, Engagement = 49, Emotion = 52 },
+            new Student { Id = "s6", Name = "Fatima Khan", Email = "fatima@medisim.demo", Attention = 86, Engagement = 79, Emotion = 83 },
+            new Student { Id = "s7", Name = "Vikram Singh", Email = "vikram@medisim.demo", Attention = 71, Engagement = 66, Emotion = 68 },
+            new Student { Id = "s8", Name = "Meera Pillai", Email = "meera@medisim.demo", Attention = 79, Engagement = 72, Emotion = 77 },
+        };
+
+        public class Meeting
+        {
+            public string Id, Name, Topic, Start, End;    // Start / End "09:00"
+            public int DayOffset;                          // 0 = today, 1 = tomorrow
+            public string[] StudentIds, QuestIds, AbsentIds;
+        }
+
+        // students get the meeting's Quests in order (more students than Quests: they share, round robin)
+        public static readonly Meeting[] Meetings =
+        {
+            new Meeting { Id = "m1", Name = "Meeting 01", Topic = "CPR & Basic Life Support", Start = "09:00", End = "10:00", DayOffset = 0,
+                StudentIds = new[] { "s1", "s2", "s3", "s4", "s5", "s6" }, QuestIds = new[] { "q1", "q2", "q4", "q5" }, AbsentIds = new[] { "s5" } },
+            new Meeting { Id = "m2", Name = "Meeting 02", Topic = "Heart Anatomy (360 view)", Start = "11:30", End = "12:30", DayOffset = 0,
+                StudentIds = new[] { "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8" }, QuestIds = new[] { "q1", "q2", "q4", "q5", "q6" }, AbsentIds = new[] { "s7" } },
+            new Meeting { Id = "m3", Name = "Meeting 03", Topic = "Airway Management", Start = "14:00", End = "15:00", DayOffset = 1,
+                StudentIds = new[] { "s3", "s4", "s5", "s6", "s7", "s8" }, QuestIds = new[] { "q2", "q4", "q6" }, AbsentIds = new string[0] },
+        };
+
+        // live metrics: every MetricStep seconds each value moves up to MetricJitter towards / around its base
+        public const float MetricStep = 0.5f;
+        public const float MetricJitter = 6f;
+        public const float MetricPull = 0.25f;           // how strongly a value returns to its base
+        public const float MetricAnimSeconds = 0.35f;    // bars animate to the new value
+        public const float EmotionPositive = 70f, EmotionNeutral = 50f;   // >= Positive, >= Neutral, else Stressed
+        public const float LowAttention = 60f;           // below this a student row turns orange
+        public const int DefaultVolume = 80;
+        public const string ShareText = "Report shared (demo): PDF sent to the admin email";
 
         // ---------- files ----------
         public class File

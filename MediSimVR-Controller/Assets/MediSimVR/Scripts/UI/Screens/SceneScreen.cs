@@ -209,16 +209,13 @@ namespace MediSimVR
             if (expandIcon != null) expandIcon.sprite = on ? collapseSprite : expandSprite;
         }
 
-        // Android back: close an open sheet, then leave the full view, then go to the Control tab (TryGetParent)
+        // Android back: close an open sheet, then leave the full view, then the screen it was opened from (Live session)
         public override bool HandleBack()
         {
             if (hierarchySheet.activeSelf || inspectorSheet.activeSelf) { ShowSheet(null); return true; }
             if (fullView) { SetFullView(false); return true; }
             return false;
         }
-
-        // the Scene is its own tab; back from it returns to Control, where the paused video waits for Play / Resume
-        public override bool TryGetParent(out ScreenId parent) { parent = ScreenId.Control; return true; }
 
         private void Update()
         {

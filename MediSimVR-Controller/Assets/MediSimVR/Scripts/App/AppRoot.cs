@@ -19,7 +19,7 @@ namespace MediSimVR
         {
             Demo = DemoConfig.Enabled;
             Debug.Log("[MediSimVR] AppRoot.Awake, demo mode " + (Demo ? "ON" : "OFF"));
-            ControlFlow.Reset();
+            Classroom.Reset();   // logged out, demo meetings
             SessionLog.Reset();
             // data first: nothing below may leave the app without a service
             if (Demo)
@@ -53,6 +53,7 @@ namespace MediSimVR
             Service.Tick(Time.unscaledDeltaTime);
             if (Session != null) Session.Tick(Time.unscaledDeltaTime);
             SessionLog.Tick(Time.unscaledDeltaTime);   // JSON session record: start / end / autosave
+            Classroom.Tick(Time.unscaledDeltaTime);    // live session clock + demo metrics
             if (Input.GetKeyDown(KeyCode.Escape) && navigator != null) navigator.Back(); // Android back button
         }
 

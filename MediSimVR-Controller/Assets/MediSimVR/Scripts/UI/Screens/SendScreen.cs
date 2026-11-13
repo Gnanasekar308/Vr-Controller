@@ -26,7 +26,7 @@ namespace MediSimVR
             preview.removeButton.onClick.AddListener(() => { Svc.ControlFileId = ""; Refresh(); });
             preview.editButton.onClick.AddListener(() => chooser.EditText());
             sendButton.onClick.AddListener(SendSelected);
-            changeTargetButton.onClick.AddListener(() => nav.Push(ControlFlow.IsPlayer ? ScreenId.SessionPlayerPick : ScreenId.Devices));
+            changeTargetButton.onClick.AddListener(() => nav.Push(ScreenId.Devices));
         }
 
         public override void OnShow()
@@ -54,7 +54,10 @@ namespace MediSimVR
             {
                 SessionLog.Add(SessionEventKind.Content, ControlFlow.IsPlayer ? ControlFlow.PlayerQuestName(Svc) : "Host",
                     "sent " + f.Name + " to " + Names(devs));
-                nav.Push(ScreenId.Control);   // step 3: control the playback
+                if (Classroom.LiveActive) Classroom.Played(f.Name);
+                // opened from the Live session: back there; else step 3: control the playback
+                if (nav.Previous == ScreenId.Live) nav.Back();
+                else nav.Push(ScreenId.Control);
             });
         }
 

@@ -20,8 +20,8 @@ namespace MediSimVR.EditorTools
     //   - clipped text: a text cut with "..."
     //   - overlap: two texts, or two buttons, drawn on top of each other
     //   - off screen: a button outside the screen area (inside a scroll list: outside its width)
-    // plus the design system rules: Home Control Mode = Session HOST card, Receiver Mode = PLAYER card, 6 bottom tabs
-    // (Settings in the Home header), every primary button BtnH high. Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
+    // plus the design system rules: Role ADMIN card = Dashboard main card, 5 role-based bottom tabs, every primary button
+    // BtnH high. The Live session is also rendered in landscape (2340 x 1080: three columns). Each screen is rendered to layout-screens/<height>/<nn>_<name>.png
     // (git-ignored) for a visual check. The canvas is switched to world space for this, nothing on a device changes.
     [InitializeOnLoad]
     public static class LayoutAuditTest
@@ -189,57 +189,134 @@ namespace MediSimVR.EditorTools
                 if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
                 rt = new RenderTexture(540, h / 2, 24);
                 cam.targetTexture = rt;
-                int n = 0;
 
-                // host state: session, two Quests selected, CPR_Training.mp4 sent to them
-                if (ses != null) { if (ses.Active) ses.End(); ses.StartHost(true); }
-                foreach (var d in svc.Devices) d.Selected = d.Id == "q1" || d.Id == "q2";
-                svc.ControlFileId = "f2";
-                svc.Send(svc.ControlFile);
-                yield return Wait(DemoConfig.FakeSendSeconds + 0.4f);
 
-                yield return Visit(h, ++n, "home", () => nav.Tab(ScreenId.Home));
-                yield return Visit(h, ++n, "session", () => nav.Tab(ScreenId.Session));
-                yield return Visit(h, ++n, "devices", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.Devices); });
+                yield return Screens(h, svc, ses, false);
+            }
+            // landscape (only the Live session turns): 2340 x 1080
+            canvasRt.sizeDelta = new Vector2(Height, Width);
+            cam.orthographicSize = Width * 0.5f;
+            if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
+            rt = new RenderTexture((int)Height / 2, (int)Width / 2, 24);
+            cam.targetTexture = rt;
+            yield return Screens((int)Height, svc, ses, true);
+            canvasRt.sizeDelta = new Vector2(Width, Height);
+            }
+            ThemeManager.Load();   // the saved theme again
+        }
+
+
+        const float Height = 2340f;
+
+        // every screen of the app flow in its state (logged out, admin, live session, report, student)
+        static IEnumerator Screens(int h, IControllerService svc, ISessionService ses, bool landscape)
+        {
+            int n = 0;
+            var live = nav.Get<LiveSessionScreen>();
+            var create = nav.Get<MeetingCreateScreen>();
+            if (ses != null && ses.Active) ses.End();
+            foreach (var d in svc.Devices) d.Selected = false;
+            Classroom.Logout();
+            if (!landscape)
+            {
+                yield return Visit(h, ++n, "splash", () => nav.Tab(ScreenId.Splash));
+                yield return Visit(h, ++n, "role_select", () => nav.Tab(ScreenId.RoleSelect));
+                yield return Visit(h, ++n, "login", () => { nav.Get<LoginScreen>().role = UserRole.Admin; nav.Push(ScreenId.Login); });
+            }
+
+            // admin
+            Classroom.Login(UserRole.Admin, DemoConfig.AdminEmail);
+            if (!landscape)
+            {
+                yield return Visit(h, ++n, "dashboard", () => nav.Tab(ScreenId.Dashboard));
+                yield return Visit(h, ++n, "meetings", () => nav.Tab(ScreenId.Meetings));
+                yield return Visit(h, ++n, "create_top", () =>
+                {
+                    nav.Push(ScreenId.MeetingCreate);
+                    create.Fill("Meeting 04", "Sepsis Recognition");
+                    create.ToggleStudent("s1");
+                    create.ToggleStudent("s2");
+                    create.ToggleQuest("q2");
+                    ScrollTo(1f);
+                });
+                yield return Visit(h, ++n, "create_middle", () => ScrollTo(0.5f));
+                yield return Visit(h, ++n, "create_bottom", () => ScrollTo(0f));
+                Classroom.Selected = Classroom.Meetings[0];
+                yield return Visit(h, ++n, "details_top", () => { nav.Tab(ScreenId.Meetings); nav.Push(ScreenId.MeetingDetails); ScrollTo(1f); });
+                yield return Visit(h, ++n, "details_bottom", () => ScrollTo(0f));
+            }
+
+            // live session: running, CPR_Training.mp4 on the meeting's Quests
+            var m = Classroom.Meetings[0];
+            Classroom.Open(m);
+            foreach (var d in svc.Devices) d.Selected = d.Online && m.QuestIds.Contains(d.Id);
+            if (ses != null) ses.StartHost(true);
+            Classroom.Start();
+            svc.ControlFileId = "f2";
+            svc.Send(svc.ControlFile);
+            yield return Wait(DemoConfig.FakeSendSeconds + 0.4f);
+            string tag = landscape ? "live_landscape" : "live";
+            yield return Visit(h, ++n, tag + "_metrics", () => { nav.Tab(ScreenId.Live); live.SelectTab(0); });
+            yield return Visit(h, ++n, tag + "_metrics_bottom", () => ScrollTo(0f));
+            if (!landscape)
+            {
+                yield return Visit(h, ++n, "live_quest", () => live.SelectTab(1));
+                yield return Visit(h, ++n, "live_students", () => live.SelectTab(2));
+                yield return Visit(h, ++n, "live_students_bottom", () => ScrollTo(0f));
+                yield return Visit(h, ++n, "live_fullscreen", () => live.SetFullscreen(true));
+                live.SetFullscreen(false);
+                live.SelectTab(0);
+                yield return Visit(h, ++n, "live_end_popup", () =>
+                    nav.popup.Show("End session?", "The session ends for all students. The report opens.", "End session", null, "Cancel", destructive: true));
+                nav.popup.Hide();
+
+                // the reused screens inside the session: Send, Control, Scene
                 yield return Visit(h, ++n, "send", () => nav.Push(ScreenId.Send));
                 yield return Visit(h, ++n, "control_top", () => { nav.Push(ScreenId.Control); ScrollTo(1f); });
                 yield return Visit(h, ++n, "control_middle", () => ScrollTo(0.5f));
                 yield return Visit(h, ++n, "control_bottom", () => ScrollTo(0f));
-                yield return Visit(h, ++n, "session_host", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.SessionHost); });
-                nav.Tab(ScreenId.Scene);   // the Scene tab
+                nav.Tab(ScreenId.Live);
+                nav.Push(ScreenId.Scene);
                 yield return Wait(DemoConfig.SceneLoadSeconds + 0.6f);   // the demo scene arrives
                 var scene = nav.Get<SceneScreen>();
                 if (scene.Doc != null && scene.Doc.Get("cube") != null) scene.Doc.Select("cube");
                 yield return Visit(h, ++n, "scene", () => { });
                 yield return Visit(h, ++n, "scene_full_view", () => scene.SetFullView(true));
                 scene.SetFullView(false);
-                yield return Visit(h, ++n, "settings", () => { nav.Tab(ScreenId.Home); nav.Push(ScreenId.Settings); });
-                yield return Visit(h, ++n, "edit_app", () => nav.Push(ScreenId.EditApp));
-                yield return Visit(h, ++n, "notifications", () => { nav.Tab(ScreenId.Home); nav.Push(ScreenId.Notifications); });
+            }
 
-                // player state: My Quest, audio sent
-                if (ses != null && ses.Active) ses.End();
-                var my = ControlFlow.MyQuest(svc);
-                ControlFlow.UsePlayerQuest(svc, my);
-                svc.ControlFileId = "f3";
-                svc.Send(svc.ControlFile);
-                yield return Wait(DemoConfig.FakeSendSeconds + 0.4f);
-                yield return Visit(h, ++n, "player_send", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.Send); });
-                yield return Visit(h, ++n, "my_quest", () => nav.Push(ScreenId.SessionPlayerPick));
-                yield return Visit(h, ++n, "player_control", () => { nav.Tab(ScreenId.Control); ScrollTo(1f); });
-                yield return Visit(h, ++n, "session_player", () => { nav.Tab(ScreenId.Session); nav.Push(ScreenId.SessionPlayer); });
-                var sum = nav.Get<SessionSummaryScreen>();
-                if (ses != null && sum != null) sum.summary = ses.End();
-                yield return Visit(h, ++n, "summary", () => nav.Tab(ScreenId.SessionSummary));
-                yield return Visit(h, ++n, "popup_end_session", () =>
-                {
-                    nav.Tab(ScreenId.Home);
-                    nav.popup.Show("End session?", "All Quests leave the session and the PC stops recording.", "End session", null, "Cancel", destructive: true);
-                });
-                nav.popup.Hide();
+            // end -> report
+            if (ses != null && ses.Active) ses.End();
+            Classroom.End(SessionLog.FilePath, "Sent to " + DemoConfig.RecorderName + ": MediSimVR_Sessions/2026-11-13_090000_host.json");
+            if (!landscape)
+            {
+                yield return Visit(h, ++n, "report_top", () => { nav.Tab(ScreenId.Report); ScrollTo(1f); });
+                yield return Visit(h, ++n, "report_middle", () => ScrollTo(0.5f));
+                yield return Visit(h, ++n, "report_bottom", () => ScrollTo(0f));
+                yield return Visit(h, ++n, "devices", () => nav.Tab(ScreenId.Devices));
+                yield return Visit(h, ++n, "settings", () => nav.Tab(ScreenId.Settings));
+                yield return Visit(h, ++n, "edit_app", () => nav.Push(ScreenId.EditApp));
+                yield return Visit(h, ++n, "notifications", () => { nav.Tab(ScreenId.Dashboard); nav.Push(ScreenId.Notifications); });
             }
+
+            // student
+            Classroom.Logout();
+            Classroom.Login(UserRole.Student, "");
+            var mine = Classroom.Visible();
+            if (!landscape)
+            {
+                yield return Visit(h, ++n, "student_dashboard", () => nav.Tab(ScreenId.Dashboard));
+                yield return Visit(h, ++n, "student_meetings", () => nav.Tab(ScreenId.Meetings));
+                Classroom.Selected = mine[0];
+                yield return Visit(h, ++n, "student_details", () => { nav.Push(ScreenId.MeetingDetails); ScrollTo(1f); });
             }
-            ThemeManager.Load();   // the saved theme again
+            Classroom.Open(mine[0]);
+            yield return Visit(h, ++n, (landscape ? "student_live_landscape" : "student_live"), () => nav.Tab(ScreenId.Live));
+            yield return Visit(h, ++n, (landscape ? "student_live_landscape_bottom" : "student_live_bottom"), () => ScrollTo(0f));
+            Classroom.End("", "");
+            Classroom.Logout();
+            foreach (var d in svc.Devices) d.Selected = false;
+            nav.Tab(ScreenId.RoleSelect);
         }
 
         static string sizeTag = "";
@@ -259,19 +336,13 @@ namespace MediSimVR.EditorTools
 
         static void DesignRules()
         {
-            var home = nav.Get<HomeScreen>();
-            var start = nav.Get<SessionStartScreen>();
-            SameCard(home.controlModeButton, start.hostButton, "Home Control Mode and Session HOST use the same primary card");
-            SameCard(home.receiverModeButton, start.playerButton, "Home Receiver Mode and Session PLAYER use the same secondary card");
-            bool settingsTab = false;
-            foreach (var i in nav.navItems) if (i.target == ScreenId.Settings) settingsTab = true;
+            var role = nav.Get<RoleSelectScreen>();
+            var dash = nav.Get<DashboardScreen>();
+            SameCard(role.adminButton, dash.mainCard, "Role ADMIN card and the Dashboard main card use the same primary card");
             string tabs = "";
-            foreach (var i in nav.navItems) tabs += i.target + " ";
-            Check(tabs == "Home Session Devices Send Control Scene " && !settingsTab, "bottom navigation: Home, Session, Devices, Send, Control, Scene (" + tabs.Trim() + ")");
-            Check(home.settingsButton != null && home.settingsButton.transform.parent.parent.name == "Header", "Settings button in the Home header");
-            var bell = (RectTransform)home.bellButton.transform.parent;
-            var set = (RectTransform)home.settingsButton.transform.parent;
-            Check(Mathf.Abs(bell.rect.width - set.rect.width) < 0.5f, "Settings and Notifications icon buttons have the same size");
+            foreach (var i in nav.navItems) tabs += i.target + (i.adminOnly ? "(admin)" : "") + " ";
+            Check(tabs == "Dashboard Meetings Live(admin) Devices(admin) Settings ", "bottom navigation: Dashboard, Meetings, Live, Devices, Settings; Live and Devices admin only (" + tabs.Trim() + ")");
+            Check(dash.bellButton != null && dash.bellButton.transform.parent.parent.name == "Header", "Notifications button in the Dashboard header");
 
             // every primary (gradient) button has the same height, every Cancel is the secondary style
             int primaries = 0;
@@ -407,6 +478,7 @@ namespace MediSimVR.EditorTools
                     var vp = Local(sc.viewport != null ? sc.viewport : (RectTransform)sc.transform);
                     if (!sc.horizontal && (r.xMin < vp.xMin - Tol || r.xMax > vp.xMax + Tol)) Fail(where, "button wider than its list " + Path(s.transform));
                     if (!Visible(sc, r)) continue;
+                    r = Clip(r, vp);   // the list's mask hides the part outside its viewport
                 }
                 else if (isScreen && (r.xMin < screenRect.xMin - Tol || r.xMax > screenRect.xMax + Tol ||
                                       r.yMin < screenRect.yMin - Tol || r.yMax > screenRect.yMax + Tol))
@@ -449,6 +521,11 @@ namespace MediSimVR.EditorTools
         {
             var vp = Local(sc.viewport != null ? sc.viewport : (RectTransform)sc.transform);
             return r.yMax > vp.yMin + 1f && r.yMin < vp.yMax - 1f;
+        }
+
+        static Rect Clip(Rect r, Rect to)
+        {
+            return Rect.MinMaxRect(Mathf.Max(r.xMin, to.xMin), Mathf.Max(r.yMin, to.yMin), Mathf.Min(r.xMax, to.xMax), Mathf.Min(r.yMax, to.yMax));
         }
 
         static float Overlap(Rect a, Rect b)
