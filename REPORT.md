@@ -1,104 +1,40 @@
 # REPORT
 
-## Task
-New app flow (UI only, demo mode / mock data, no backend), replacing Home > Control Mode > Session (Host / Player):
-Launch > Splash (1.5 s) > Role selection (ADMIN / STUDENT) > mock Login (Demo admin / Demo student) > role-based
-Dashboard. Admin: Meeting Room (Create Meeting form, list + View All, Meeting details with attendance, Start Session),
-Live session dashboard (Quest screen on top, tabs Metrics | Quest | Students in portrait, three columns in landscape,
-START / PAUSE / END), Session report (Share mock, Back to Dashboard). Student: Available meetings > details > Join
-Session > student live view (no admin controls). Role-based bottom bar (Admin: Dashboard, Meetings, Live, Devices,
-Settings; Student: Dashboard, Meetings, Settings), Logout in Settings. Devices, Send, Control, Scene, Settings and Edit
-App are reused. All demo data in DemoConfig: 1 admin, 8 students, 6 Quests (one offline, one in use), 3 meetings.
+## Task (UI only, demo data, no backend)
+Live classroom redesign and meeting changes, from the user's mockup and corrections:
+- Live class: always the landscape (tablet) layout, also on phones; left = Live metrics (engagement / attention /
+  participation as admin sliders, settings: show / hide, alert level; "students need attention"), questions (New,
+  mark answered), live comments, mute all, per student meters + mute; centre = the Quest view only + control bar
+  (volume, Start, Pause, End Class, Record, Instruction, Content); right = class overview + students (avatar, online
+  dot, mute, battery). Record shows a red blinking "REC 00:12" chip and a red "Stop REC" button.
+- Create Meeting: only online Quests, each with the student signed in on it (name + ID); no separate student list;
+  **Start Live** saves the meeting and starts its live class at once.
+- Meeting details: Delete (admin, confirm; not while live).
+- Demo data: 8 Quests (one per student), student IDs S001-S008, subjects, questions, comments, alert levels.
+- `HANDOVER.md`: English handover guide for the colleague (setup, folders, UI rules, tests, backend connection,
+  what to share).
 
-## Files changed (phone repo, `MediSimVR-Controller/Assets/MediSimVR/`)
-- New data: `Scripts/Core/Classroom.cs`: login role, students, meetings, live session (state Ready / Running / Paused /
-  Ended, clock, demo metrics as a random walk around each student's base, mute all / per student, volume, focus
-  student), report (attendance, averages per student and class, content played, key event timeline). Plain classes
-  Student, Meeting, StudentMetrics, SessionReport (no MonoBehaviours).
-- `Scripts/Demo/DemoConfig.cs`: Quests q5 / q6 (6 total), classroom section (splash time, role texts, admin, 8 students
-  with base metrics, 3 meetings, metric timing / thresholds, share text). Old Session-screen texts removed.
-- New screens (one MonoBehaviour per file): `SplashScreen`, `RoleSelectScreen`, `LoginScreen`, `DashboardScreen`
-  (admin + student), `MeetingsScreen`, `MeetingCreateScreen`, `MeetingDetailsScreen`, `LiveSessionScreen`,
-  `SessionReportScreen`. New widgets: `MeterView`, `MeetingRowView`, `CheckRowView`, `StudentRowView`.
-  New `Scripts/App/OrientationScaler.cs` (canvas reference 2340 x 1080 in landscape).
-- `Scripts/App/Navigator.cs`: new ScreenId list, starts on Splash, role-based tabs (`adminOnly`), bottom bar hidden
-  before login / in landscape / full screen (`AppScreen.ShowsNav`), `Previous` (Send returns to Live), back falls back
-  to Dashboard / Role selection, highlight per tab, logs "screen X".
-- `AppScreen.cs` (`ShowsNav`), `AppRoot.cs` (Classroom reset + tick), `ControlFlow.cs` (role from the session service
-  or the live session; player helpers of the removed screens removed), `SendScreen.cs` (back to Live after a send from
-  the live session; Change = Devices), `ControlScreen.cs` (Change = Devices; "Playing on: first +n" for > 2 Quests),
-  `SceneScreen.cs` (back = the screen it was opened from), `SettingsScreen.cs` (Settings is a tab: account row +
-  Log out with confirm; ends a live session first).
-- Removed (replaced by the new flow): `HomeScreen`, `SessionStartScreen`, `SessionHostScreen`,
-  `SessionPlayerPickScreen`, `SessionPlayerScreen`, `SessionSummaryScreen`, widgets `ChatBubbleView`, `QuestCardView`.
-  The session service (MockSessionService) stays: START starts the host session (JSON record), Join starts a player
-  session, END / Leave end it (record saved + sent to the PC, simulated in demo).
-- UI builder: new `Editor/MediSimUIBuilder.Classroom.cs` (Splash, Role, Login, Dashboard, Meetings, Create, Details)
-  and `Editor/MediSimUIBuilder.Live.cs` (Live, Report, meters, student rows); `MediSimUIBuilder.Session.cs` renamed to
-  `MediSimUIBuilder.Shared.cs` (only Label, TopLeft, TimelineRow kept); `MediSimUIBuilder.cs` (screen list, 5 tabs,
-  Settings without back button + account / logout rows, nav references, OrientationScaler).
-- Tests: `Scripts/Demo/DemoTour.cs` rewritten for the new flow (admin + student, landscape on the phone),
-  `Editor/LayoutAuditTest.cs` (new screen list incl. landscape Live 2340 x 1080; design rules for the new tabs;
-  partly scrolled list items are now clipped to their list viewport before the overlap check, as the list mask does).
-- `DEMO.md` rewritten (click-by-click script). `Scenes/Main.unity` regenerated by the builder (not in the review diff).
+## Files changed (`MediSimVR-Controller/Assets/MediSimVR/`)
+`Scripts/Core/Classroom.cs`, `Scripts/Demo/DemoConfig.cs`, `Scripts/Demo/DemoTour.cs`,
+`Scripts/UI/Screens/LiveSessionScreen.cs`, `MeetingCreateScreen.cs`, `MeetingDetailsScreen.cs`,
+`Scripts/UI/Widgets/StudentRowView.cs`, `MeterView.cs`, new `LiveLineView.cs`,
+`Editor/MediSimUIBuilder.Live.cs`, `MediSimUIBuilder.Classroom.cs`, `Editor/LayoutAuditTest.cs`,
+`Scenes/Main.unity` (regenerated by the builder). Repo root: new `HANDOVER.md`.
 
 ## Tested + real results
-Editor (final code):
-- Smoke test (`DemoSmokeTest`, UI rebuilt): `UI scene built ... screens 16, tabs 5`,
-  `[DEMO-TEST] RESULT screens 51, errors 0  -> PASSED` (63 checks OK, 0 failed). Landscape is checked on the phone
-  only (the Editor cannot turn the screen; logged).
-- Layout audit (1080 x 1920 / 2160 / 2340 / 2400 portrait + 2340 x 1080 landscape Live, text size M and L):
-  run 1: 285 problems (long meeting info line, "Upcoming" chip, student Quest stat, live chip / time text, report
-  button label and timeline line, Control target line, full-screen view under the header, landscape header offset
-  sign, and list items partly scrolled under fixed bars). Fixed (short date in rows, wider chip / time boxes, shorter
-  texts, header hidden in full screen, sign fixed, audit clips list items to the viewport). Run 2: 16 (landscape
-  student rows) -> shorter status line. Final: `[LAYOUT] RESULT 288 screens checked (293 checks), 0 problems, 0 errors
-  -> PASSED`. Rendered PNGs checked by eye; disabled-looking rows (report, student attendance, account row) fixed by
-  disabling the Button component instead of `interactable = false`.
-- Scene Play-mode test (demo OFF): `[SIM-TEST] RESULT 82 passed, 0 failed  -> ALL PASSED`.
-- APK: `Build result: Succeeded`, 16,959,500 bytes (19:16).
-
-Phone ZA223HXPHV:
-- Run 1 (APK 19:02): tour 51 screens, 66 checks OK, 0 FAILED, 0 E/Unity, 0 exceptions. Found by reading the log: the
-  splash switched to the role selection after 4 ms (`screen Splash` 19:02:31.413, `screen RoleSelect` .417: the first
-  frame after app start is long) and the landscape Quest screen was laid out before the canvas rescaled (small card,
-  icon over the text). Fixed: the splash counts capped frame steps; the Live screen lays out again when its size
-  changes; no big icon in the short landscape card.
-- Run 2 (final APK): `adb install -r` -> `Success`, `lastUpdateTime=2026-11-13 19:16:29`. Tour log 865 lines:
-  `AppRoot.Awake, demo mode ON` (19:16:35.010), `screen Splash` (35.126), `screen RoleSelect` (36.523, splash ~1.4 s),
-  `DEMO-TOUR done 52 screens` (19:20:06); 66 checks OK, 0 FAILED; 0 E/Unity, 0 W/Unity, 0 exceptions. Checks include:
-  no bottom bar before login; empty login refused; admin tabs Dashboard, Meetings, Live, Devices, Settings; empty form
-  not saved; offline Quest cannot be assigned; new meeting in the list; View All; Start Session opens Live (Ready);
-  START starts session + record; clock runs; mute all / per student; video plays on the meeting's Quests; Pause /
-  Play; Live Scene pauses, back returns to Live still paused; student details + Show Quest screen; full screen without
-  bottom bar; `landscape shows Metrics | Quest | Students side by side`, `no bottom bar in landscape`, `back to
-  portrait`; PAUSE / resume; END > report with attendance, averages, content, timeline; record sent to the PC
-  (simulated) and JSON has the events (`session record started: ...2026-11-13_191726_host.json`); sessions today 1;
-  6 Quests on Devices; Settings / Edit App / Notifications / back; Log out > role selection; student tabs Dashboard,
-  Meetings, Settings; student sees only own meetings, no Create; Join Session; student view without admin controls;
-  Leave.
-- 52 screenshots in `demo-screens/` (git-ignored), checked by eye: splash, role selection, logins, dashboards (admin /
-  student), meeting room, create form (empty / filled / students / Quests), saved list + View All, details +
-  attendance, live (ready, metrics, students, Quest, replace popup, playing, scene, details popup, focus, full screen,
-  landscape, paused, end confirm), report (3 parts), devices, settings, edit app, notifications, logout confirm,
-  student meetings / details / live / sound, dashboard + details in the 5 themes.
-
-### Review input note
-`*.unity` scenes are excluded from the Codex diff (Main.unity is regenerated by MediSimUIBuilder and is too large);
-the builder code that generates it is in the diff.
+- Editor smoke test: `[DEMO-TEST] RESULT screens 45, errors 0 -> PASSED`, 66 checks OK.
+- Layout audit (phone portrait 1080 x 1920-2400, Live at phone landscape 2340 x 1080 and tablet landscape
+  2340 x 1462, text size M / L): `[LAYOUT] RESULT 236 screens checked (241 checks), 0 problems, 0 errors -> PASSED`.
+- Phone ZA223HXPHV: APK `Build result: Succeeded`, `adb install -r` Success (2026-11-14 16:10:17), demo tour
+  `DEMO-TOUR done 45 screens`, 66 checks OK, 0 FAILED, 0 E/Unity, 0 exceptions. Checks include: meeting deleted;
+  only online Quests listed (7 of 8); Start Live opens the meeting live and started; live class in landscape without
+  bottom bar; admin moves class attention to 40%; metrics can be hidden; alert level changes; red REC chip shows and
+  hides; instruction sent; content plays; full screen; report.
+- Found and fixed on the phone: the live class stayed portrait with the phone's rotation lock on -> forced
+  landscape-left.
 
 ## Not verified
-- Real human taps and real phone rotation by turning the device: the Live screen turns with its rotate button
-  (Screen.orientation); auto-rotation by turning the phone is not enabled (all other screens stay portrait).
-- Demo mode OFF: meetings, students, metrics stay sample data (no classroom backend yet); not run on the phone.
-- Same as before: real playback of a video picked on the phone, hearing the TTS, real Quest read-aloud / PC upload /
-  Quest mics (backend, simulated in demo mode).
+- Real tablet; real users; demo mode OFF; the backend parts (all classroom data is mock, see HANDOVER.md section 6).
 
-## Review rounds
-- Round 1: FAIL, 1 major: "leaving full screen does not restore the admin panels / the student panel". No code
-  change: `ApplyLayout()` sets `studentPanel` (and header, control bar, tabs) active again before the full-screen early
-  return (`studentPanel.SetActive(live && !admin && !fullscreen)`), and the portrait / landscape branches set the admin
-  panels again. Evidence added to the tour (3 new checks): `after full screen the panels, the control bar and the
-  bottom bar are back`, `student full screen hides the student panel`, `after full screen the student panel is back`.
-  Smoke test: `RESULT screens 51, errors 0 -> PASSED`, 66 checks OK.
-- Round 2: PASS, no issues (REVIEW.md).
+## Review
+No Codex review this round (the user asked for UI-only changes tested here, without Codex).

@@ -94,6 +94,7 @@ namespace MediSimVR
         public class Quest
         {
             public string Id, Name, Ip, FileId;
+            public string StudentId;    // the student signed in on this Quest (name + ID entered on the headset)
             public bool Online, Muted;
             public int Battery;
             public DeviceState State;
@@ -102,12 +103,14 @@ namespace MediSimVR
 
         public static readonly Quest[] Quests =
         {
-            new Quest { Id = "q1", Name = "Quest-A1B2", Ip = "192.168.1.21", Online = true, Battery = 86, State = DeviceState.Playing, FileId = "f1", PositionSec = 95f },
-            new Quest { Id = "q2", Name = "Quest-C3D4", Ip = "192.168.1.22", Online = true, Battery = 64, State = DeviceState.Idle, FileId = "" },
-            new Quest { Id = "q3", Name = "Quest-E5F6", Ip = "192.168.1.23", Online = false, Battery = -1, State = DeviceState.Idle, FileId = "" },
-            new Quest { Id = "q4", Name = "Quest-G7H8", Ip = "192.168.1.24", Online = true, Battery = 92, State = DeviceState.Idle, FileId = "", Muted = true },
-            new Quest { Id = "q5", Name = "Quest-J9K1", Ip = "192.168.1.25", Online = true, Battery = 71, State = DeviceState.Idle, FileId = "" },
-            new Quest { Id = "q6", Name = "Quest-M2N3", Ip = "192.168.1.26", Online = true, Battery = 58, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q1", StudentId = "s1", Name = "Quest-A1B2", Ip = "192.168.1.21", Online = true, Battery = 86, State = DeviceState.Playing, FileId = "f1", PositionSec = 95f },
+            new Quest { Id = "q2", StudentId = "s2", Name = "Quest-C3D4", Ip = "192.168.1.22", Online = true, Battery = 64, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q3", StudentId = "s3", Name = "Quest-E5F6", Ip = "192.168.1.23", Online = false, Battery = -1, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q4", StudentId = "s4", Name = "Quest-G7H8", Ip = "192.168.1.24", Online = true, Battery = 92, State = DeviceState.Idle, FileId = "", Muted = true },
+            new Quest { Id = "q5", StudentId = "s5", Name = "Quest-J9K1", Ip = "192.168.1.25", Online = true, Battery = 71, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q6", StudentId = "s6", Name = "Quest-M2N3", Ip = "192.168.1.26", Online = true, Battery = 58, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q7", StudentId = "s7", Name = "Quest-P7R2", Ip = "192.168.1.27", Online = true, Battery = 77, State = DeviceState.Idle, FileId = "" },
+            new Quest { Id = "q8", StudentId = "s8", Name = "Quest-V8W6", Ip = "192.168.1.28", Online = true, Battery = 95, State = DeviceState.Idle, FileId = "" },
         };
 
         // ---------- classroom: app start, login, people, meetings, live metrics ----------
@@ -126,38 +129,37 @@ namespace MediSimVR
 
         public class Student
         {
-            public string Id, Name, Email;
+            public string Id, Code, Name, Email;   // Code = the student ID entered on the Quest
             public float Attention, Engagement, Emotion;   // base values (0-100) the live metrics move around
         }
 
         public static readonly Student[] Students =
         {
-            new Student { Id = "s1", Name = "Arjun Kumar", Email = "arjun@medisim.demo", Attention = 82, Engagement = 76, Emotion = 74 },
-            new Student { Id = "s2", Name = "Divya Menon", Email = "divya@medisim.demo", Attention = 90, Engagement = 85, Emotion = 80 },
-            new Student { Id = "s3", Name = "Karthik Raj", Email = "karthik@medisim.demo", Attention = 64, Engagement = 58, Emotion = 61 },
-            new Student { Id = "s4", Name = "Sneha Iyer", Email = "sneha@medisim.demo", Attention = 77, Engagement = 81, Emotion = 70 },
-            new Student { Id = "s5", Name = "Rahul Verma", Email = "rahul@medisim.demo", Attention = 55, Engagement = 49, Emotion = 52 },
-            new Student { Id = "s6", Name = "Fatima Khan", Email = "fatima@medisim.demo", Attention = 86, Engagement = 79, Emotion = 83 },
-            new Student { Id = "s7", Name = "Vikram Singh", Email = "vikram@medisim.demo", Attention = 71, Engagement = 66, Emotion = 68 },
-            new Student { Id = "s8", Name = "Meera Pillai", Email = "meera@medisim.demo", Attention = 79, Engagement = 72, Emotion = 77 },
+            new Student { Id = "s1", Code = "S001", Name = "Arjun Kumar", Email = "arjun@medisim.demo", Attention = 82, Engagement = 76, Emotion = 74 },
+            new Student { Id = "s2", Code = "S002", Name = "Divya Menon", Email = "divya@medisim.demo", Attention = 90, Engagement = 85, Emotion = 80 },
+            new Student { Id = "s3", Code = "S003", Name = "Karthik Raj", Email = "karthik@medisim.demo", Attention = 64, Engagement = 58, Emotion = 61 },
+            new Student { Id = "s4", Code = "S004", Name = "Sneha Iyer", Email = "sneha@medisim.demo", Attention = 77, Engagement = 81, Emotion = 70 },
+            new Student { Id = "s5", Code = "S005", Name = "Rahul Verma", Email = "rahul@medisim.demo", Attention = 55, Engagement = 49, Emotion = 52 },
+            new Student { Id = "s6", Code = "S006", Name = "Fatima Khan", Email = "fatima@medisim.demo", Attention = 86, Engagement = 79, Emotion = 83 },
+            new Student { Id = "s7", Code = "S007", Name = "Vikram Singh", Email = "vikram@medisim.demo", Attention = 71, Engagement = 66, Emotion = 68 },
+            new Student { Id = "s8", Code = "S008", Name = "Meera Pillai", Email = "meera@medisim.demo", Attention = 79, Engagement = 72, Emotion = 77 },
         };
 
         public class Meeting
         {
-            public string Id, Name, Topic, Start, End;    // Start / End "09:00"
+            public string Id, Name, Subject, Topic, Start, End;    // Start / End "09:00"
             public int DayOffset;                          // 0 = today, 1 = tomorrow
-            public string[] StudentIds, QuestIds, AbsentIds;
+            public string[] QuestIds, AbsentIds;   // the students are the ones signed in on these Quests
         }
 
-        // students get the meeting's Quests in order (more students than Quests: they share, round robin)
         public static readonly Meeting[] Meetings =
         {
-            new Meeting { Id = "m1", Name = "Meeting 01", Topic = "CPR & Basic Life Support", Start = "09:00", End = "10:00", DayOffset = 0,
-                StudentIds = new[] { "s1", "s2", "s3", "s4", "s5", "s6" }, QuestIds = new[] { "q1", "q2", "q4", "q5" }, AbsentIds = new[] { "s5" } },
-            new Meeting { Id = "m2", Name = "Meeting 02", Topic = "Heart Anatomy (360 view)", Start = "11:30", End = "12:30", DayOffset = 0,
-                StudentIds = new[] { "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8" }, QuestIds = new[] { "q1", "q2", "q4", "q5", "q6" }, AbsentIds = new[] { "s7" } },
-            new Meeting { Id = "m3", Name = "Meeting 03", Topic = "Airway Management", Start = "14:00", End = "15:00", DayOffset = 1,
-                StudentIds = new[] { "s3", "s4", "s5", "s6", "s7", "s8" }, QuestIds = new[] { "q2", "q4", "q6" }, AbsentIds = new string[0] },
+            new Meeting { Id = "m1", Name = "Meeting 01", Subject = "Emergency Care", Topic = "CPR & Basic Life Support", Start = "09:00", End = "10:00", DayOffset = 0,
+                QuestIds = new[] { "q1", "q2", "q3", "q4", "q5", "q6" }, AbsentIds = new[] { "s5" } },
+            new Meeting { Id = "m2", Name = "Meeting 02", Subject = "Human Anatomy", Topic = "Heart Anatomy (360 view)", Start = "11:30", End = "12:30", DayOffset = 0,
+                QuestIds = new[] { "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8" }, AbsentIds = new[] { "s7" } },
+            new Meeting { Id = "m3", Name = "Meeting 03", Subject = "Anaesthesia", Topic = "Airway Management", Start = "14:00", End = "15:00", DayOffset = 1,
+                QuestIds = new[] { "q3", "q4", "q5", "q6", "q7", "q8" }, AbsentIds = new string[0] },
         };
 
         // live metrics: every MetricStep seconds each value moves up to MetricJitter towards / around its base
@@ -166,8 +168,35 @@ namespace MediSimVR
         public const float MetricPull = 0.25f;           // how strongly a value returns to its base
         public const float MetricAnimSeconds = 0.35f;    // bars animate to the new value
         public const float EmotionPositive = 70f, EmotionNeutral = 50f;   // >= Positive, >= Neutral, else Stressed
-        public const float LowAttention = 60f;           // below this a student row turns orange
+        public const float LowAttention = 60f;           // default alert level: below it a meter turns orange
+        public static readonly int[] AlertLevels = { 50, 60, 70 };   // Live metrics settings cycle through these
         public const int DefaultVolume = 80;
+        public const float ParticipationOffset = 6f;     // a student's participation base = engagement + this
+
+        // live session demo: questions and comments from the students (StudentIndex = DemoConfig.Students index)
+        public class Line { public int StudentIndex; public string Text; }
+        public static readonly Line[] Questions =
+        {
+            new Line { StudentIndex = 1, Text = "Can you explain the function of this step again?" },
+            new Line { StudentIndex = 2, Text = "What is the difference between the two techniques?" },
+            new Line { StudentIndex = 3, Text = "Can we see this part in the 3D model?" },
+            new Line { StudentIndex = 5, Text = "How deep should the compressions be?" },
+            new Line { StudentIndex = 0, Text = "Is there a quiz after this session?" },
+        };
+        public static readonly Line[] Comments =
+        {
+            new Line { StudentIndex = 1, Text = "Got it, thank you." },
+            new Line { StudentIndex = 4, Text = "Can you zoom in a little?" },
+            new Line { StudentIndex = 2, Text = "The steps are clear now." },
+            new Line { StudentIndex = 5, Text = "Please repeat the last point." },
+            new Line { StudentIndex = 3, Text = "The video is very clear." },
+            new Line { StudentIndex = 0, Text = "Ready for the next chapter." },
+        };
+        public const int StartQuestions = 2, StartComments = 3;   // already there when the live screen opens
+        public const float QuestionEvery = 25f, CommentEvery = 9f;  // seconds between new ones while running
+        public const float NewSeconds = 20f;                        // a question shows "New" this long
+        public const int ShowQuestions = 4, ShowComments = 5;       // newest shown on the live screen
+
         public const string ShareText = "Report shared (demo): PDF sent to the admin email";
 
         // ---------- files ----------

@@ -9,13 +9,30 @@ namespace MediSimVR
 
     public class Student
     {
-        public string Id = "", Name = "", Email = "";
-        public float BaseAttention, BaseEngagement, BaseEmotion;
+        public string Id = "", Code = "", Name = "", Email = "";
+        public float BaseAttention, BaseEngagement, BaseEmotion, BaseParticipation;
+        public string Initials
+        {
+            get
+            {
+                var p = Name.Split(' ');
+                return (p[0].Substring(0, 1) + (p.Length > 1 ? p[p.Length - 1].Substring(0, 1) : "")).ToUpperInvariant();
+            }
+        }
+    }
+
+    // a student's question or comment in the live session
+    public class LiveLine
+    {
+        public string StudentId = "", Text = "";
+        public float At;          // session seconds
+        public DateTime Time;
+        public bool Answered;
     }
 
     public class Meeting
     {
-        public string Id = "", Name = "", Topic = "", Start = "09:00", End = "10:00";
+        public string Id = "", Name = "", Subject = "", Topic = "", Start = "09:00", End = "10:00";
         public DateTime Date = DateTime.Today;
         public readonly List<string> StudentIds = new List<string>();
         public readonly List<string> QuestIds = new List<string>();
@@ -29,8 +46,8 @@ namespace MediSimVR
     // live values of one student (0-100); Shown* follow the values smoothly for the animated bars
     public class StudentMetrics
     {
-        public float Attention, Engagement, Emotion;
-        public float ShownAttention, ShownEngagement, ShownEmotion;
+        public float Attention, Engagement, Emotion, Participation;
+        public float ShownAttention, ShownEngagement, ShownEmotion, ShownParticipation;
         public float SumAttention, SumEngagement, SumEmotion;
         public int Samples;
         public bool Muted;
@@ -95,7 +112,52 @@ namespace MediSimVR
         static readonly Dictionary<string, StudentMetrics> metrics = new Dictionary<string, StudentMetrics>();
         static readonly List<ReportEvent> events = new List<ReportEvent>();
         static readonly List<string> content = new List<string>();
-        static float stepTimer;
+        static float stepTimer, questionTimer, commentTimer;
+        static int nextQuestion, nextComment;
+        static readonly List<LiveLine> questions = new List<LiveLine>();
+        static readonly List<LiveLine> comments = new List<LiveLine>();
+
+        public static IReadOnlyList<LiveLine> Questions { get { return questions; } }   // oldest first
+        public static IReadOnlyList<LiveLine> Comments { get { return comments; } }
+        public static bool Recording { get; private set; }
+        public static float RecordSeconds { get; private set; }
+
+        public static int NewQuestions
+        {
+            get { int n = 0; foreach (var q in questions) if (!q.Answered && Elapsed - q.At < DemoConfig.NewSeconds) n++; return n; }
+        }
+
+        // next demo line from the pool, from a student of the meeting who is present
+        static void AddLine(List<LiveLine> list, DemoConfig.Line[] pool, ref int next, Meeting m)
+        {
+            if (pool.Length == 0 || m == null) return;
+            for (int tries = 0; tries < pool.Length; tries++)
+            {
+                var l = pool[next % pool.Length];
+                next++;
+                if (l.StudentIndex < 0 || l.StudentIndex >= Students.Count) continue;
+                string id = Students[l.StudentIndex].Id;
+                if (!m.Present(id)) continue;
+                list.Add(new LiveLine { StudentId = id, Text = l.Text, At = Elapsed, Time = DateTime.Now });
+                return;
+            }
+        }
+
+        public static void Answer(LiveLine q)
+        {
+            if (q == null || q.Answered) return;
+            q.Answered = true;
+            Log(SessionEventKind.Text, "Answered a question of " + FirstName(q.StudentId));
+            Fire();
+        }
+
+        public static void SetRecording(bool on)
+        {
+            if (Live == null || Recording == on) return;
+            Recording = on;
+            Log(SessionEventKind.Info, on ? "Recording started" : "Recording stopped (" + Mathf.FloorToInt(RecordSeconds) + " s)");
+            Fire();
+        }
         static System.Random rnd = new System.Random(7);
 
         // app start / demo switch (statics survive a scene reload)
@@ -106,13 +168,14 @@ namespace MediSimVR
             StudentId = "";
             Students.Clear();
             foreach (var s in DemoConfig.Students)
-                Students.Add(new Student { Id = s.Id, Name = s.Name, Email = s.Email, BaseAttention = s.Attention, BaseEngagement = s.Engagement, BaseEmotion = s.Emotion });
+                Students.Add(new Student { Id = s.Id, Code = s.Code ?? "", Name = s.Name, Email = s.Email, BaseAttention = s.Attention, BaseEngagement = s.Engagement, BaseEmotion = s.Emotion,
+                    BaseParticipation = Mathf.Clamp(s.Engagement + DemoConfig.ParticipationOffset, 5f, 99f) });
             Meetings.Clear();
             foreach (var m in DemoConfig.Meetings)
             {
-                var x = new Meeting { Id = m.Id, Name = m.Name, Topic = m.Topic, Start = m.Start, End = m.End, Date = DateTime.Today.AddDays(m.DayOffset) };
-                x.StudentIds.AddRange(m.StudentIds);
+                var x = new Meeting { Id = m.Id, Name = m.Name, Subject = m.Subject ?? "", Topic = m.Topic, Start = m.Start, End = m.End, Date = DateTime.Today.AddDays(m.DayOffset) };
                 x.QuestIds.AddRange(m.QuestIds);
+                foreach (var q in m.QuestIds) { var sid = StudentOfQuest(q); if (sid.Length > 0) x.StudentIds.Add(sid); }
                 foreach (var a in m.AbsentIds) x.Absent.Add(a);
                 Meetings.Add(x);
             }
@@ -132,8 +195,17 @@ namespace MediSimVR
             events.Clear();
             content.Clear();
             FocusStudentId = "";
+            questions.Clear();
+            comments.Clear();
+            nextQuestion = nextComment = 0;
+            questionTimer = commentTimer = 0f;
+            Recording = false;
+            RecordSeconds = 0f;
             Volume = DemoConfig.DefaultVolume;
             MuteAll = false;
+            ShowEngagement = ShowAttention = ShowParticipation = true;
+            levelShift[0] = levelShift[1] = levelShift[2] = 0f;
+            AlertLevel = DemoConfig.LowAttention;
             stepTimer = 0f;
         }
 
@@ -190,12 +262,32 @@ namespace MediSimVR
             return l;
         }
 
-        // the Quest of a student in a meeting: the meeting's Quests in order, shared round robin
+        // every Quest has its student (name + ID entered on the headset; demo: DemoConfig.Quests)
+        public static string StudentOfQuest(string questId)
+        {
+            foreach (var q in DemoConfig.Quests) if (q.Id == questId) return q.StudentId ?? "";
+            return "";
+        }
+
+        public static string QuestOfStudent(string studentId)
+        {
+            foreach (var q in DemoConfig.Quests) if (q.StudentId == studentId) return q.Id;
+            return "";
+        }
+
+        // the Quest of a student in a meeting: the student's own Quest when it is in the meeting
         public static string QuestIdFor(Meeting m, string studentId)
         {
-            if (m == null || m.QuestIds.Count == 0) return "";
-            int i = m.StudentIds.IndexOf(studentId);
-            return i < 0 ? "" : m.QuestIds[i % m.QuestIds.Count];
+            if (m == null) return "";
+            string q = QuestOfStudent(studentId);
+            return m.QuestIds.Contains(q) ? q : "";
+        }
+
+        // "Arjun Kumar (S001)"
+        public static string StudentLabel(string studentId)
+        {
+            var s = StudentById(studentId);
+            return s == null ? "No student" : s.Name + (s.Code.Length > 0 ? " (" + s.Code + ")" : "");
         }
 
         public static QuestDevice Device(IControllerService svc, string questId)
@@ -240,6 +332,61 @@ namespace MediSimVR
             Fire();
         }
 
+        public static bool Delete(Meeting m)
+        {
+            if (m == null || (Live == m && LiveActive)) return false;
+            Meetings.Remove(m);
+            if (Selected == m) Selected = null;
+            Debug.Log("[MediSimVR] meeting deleted: " + m.Name);
+            Fire();
+            return true;
+        }
+
+        // ---------- live metrics settings (admin) ----------
+        public static bool ShowEngagement = true, ShowAttention = true, ShowParticipation = true;
+        public static float AlertLevel = DemoConfig.LowAttention;
+
+        // present students whose attention is under the alert level
+        public static int NeedAttention()
+        {
+            if (Live == null) return 0;
+            int n = 0;
+            foreach (var id in Live.StudentIds)
+            {
+                if (Live.Absent.Contains(id)) continue;
+                var x = MetricsOf(id);
+                if (x != null && x.ShownAttention < AlertLevel) n++;
+            }
+            return n;
+        }
+
+        public static void MetricsChanged() { Fire(); }
+
+        // admin slider: move the class level of a metric (0 engagement, 1 attention, 2 participation) to v. Demo: every
+        // present student's values move by the same amount and keep moving around the new level.
+        static readonly float[] levelShift = new float[3];
+
+        public static void SetLevel(int kind, float v)
+        {
+            if (Live == null || kind < 0 || kind > 2) return;
+            float a, e, m;
+            Average(out a, out e, out m);
+            float now = kind == 0 ? e : kind == 1 ? a : AverageParticipation();
+            float d = v - now;
+            levelShift[kind] = Mathf.Clamp(levelShift[kind] + d, -90f, 90f);
+            foreach (var x in metrics.Values)
+            {
+                if (kind == 0) { x.Engagement = Mathf.Clamp(x.Engagement + d, 5f, 99f); x.ShownEngagement = Mathf.Clamp(x.ShownEngagement + d, 5f, 99f); }
+                else if (kind == 1) { x.Attention = Mathf.Clamp(x.Attention + d, 5f, 99f); x.ShownAttention = Mathf.Clamp(x.ShownAttention + d, 5f, 99f); }
+                else { x.Participation = Mathf.Clamp(x.Participation + d, 5f, 99f); x.ShownParticipation = Mathf.Clamp(x.ShownParticipation + d, 5f, 99f); }
+            }
+        }
+
+        public static void LogLevel(int kind, float v)
+        {
+            Log(SessionEventKind.Info, (kind == 0 ? "Engagement" : kind == 1 ? "Attention" : "Participation") + " level set to " + Mathf.RoundToInt(v) + "%");
+        }
+
         // ---------- live session ----------
         // Start Session (admin) / Join Session (student) on the details screen: the live screen opens, Ready
         public static void Open(Meeting m)
@@ -254,11 +401,13 @@ namespace MediSimVR
                 if (s == null) continue;
                 metrics[id] = new StudentMetrics
                 {
-                    Attention = s.BaseAttention, Engagement = s.BaseEngagement, Emotion = s.BaseEmotion,
-                    ShownAttention = s.BaseAttention, ShownEngagement = s.BaseEngagement, ShownEmotion = s.BaseEmotion
+                    Attention = s.BaseAttention, Engagement = s.BaseEngagement, Emotion = s.BaseEmotion, Participation = s.BaseParticipation,
+                    ShownAttention = s.BaseAttention, ShownEngagement = s.BaseEngagement, ShownEmotion = s.BaseEmotion, ShownParticipation = s.BaseParticipation
                 };
             }
             FocusStudentId = IsStudent ? StudentId : FirstPresent(m);
+            for (int i = 0; i < DemoConfig.StartQuestions; i++) AddLine(questions, DemoConfig.Questions, ref nextQuestion, m);
+            for (int i = 0; i < DemoConfig.StartComments; i++) AddLine(comments, DemoConfig.Comments, ref nextComment, m);
             Elapsed = 0f;
             State = IsStudent ? LiveState.Running : LiveState.Ready;   // a student joins a running class
             if (IsStudent) Log(SessionEventKind.Join, UserName + " joined");
@@ -377,6 +526,22 @@ namespace MediSimVR
             attention /= n; engagement /= n; emotion /= n;
         }
 
+        public static float AverageParticipation()
+        {
+            if (Live == null) return 0f;
+            float sum = 0f;
+            int n = 0;
+            foreach (var id in Live.StudentIds)
+            {
+                if (Live.Absent.Contains(id)) continue;
+                var x = MetricsOf(id);
+                if (x == null) continue;
+                sum += x.ShownParticipation;
+                n++;
+            }
+            return n == 0 ? 0f : sum / n;
+        }
+
         public static void ToggleMute(string id)
         {
             var x = MetricsOf(id);
@@ -416,9 +581,13 @@ namespace MediSimVR
                 x.ShownAttention = Mathf.Lerp(x.ShownAttention, x.Attention, k);
                 x.ShownEngagement = Mathf.Lerp(x.ShownEngagement, x.Engagement, k);
                 x.ShownEmotion = Mathf.Lerp(x.ShownEmotion, x.Emotion, k);
+                x.ShownParticipation = Mathf.Lerp(x.ShownParticipation, x.Participation, k);
             }
             if (State != LiveState.Running) return;
             Elapsed += dt;
+            if (Recording) RecordSeconds += dt;
+            if ((questionTimer += dt) >= DemoConfig.QuestionEvery) { questionTimer = 0f; AddLine(questions, DemoConfig.Questions, ref nextQuestion, Live); Fire(); }
+            if ((commentTimer += dt) >= DemoConfig.CommentEvery) { commentTimer = 0f; AddLine(comments, DemoConfig.Comments, ref nextComment, Live); Fire(); }
             stepTimer += dt;
             if (stepTimer < DemoConfig.MetricStep) return;
             stepTimer = 0f;
@@ -427,9 +596,10 @@ namespace MediSimVR
                 if (Live.Absent.Contains(kv.Key)) continue;
                 var s = StudentById(kv.Key);
                 var x = kv.Value;
-                x.Attention = Walk(x.Attention, s.BaseAttention);
-                x.Engagement = Walk(x.Engagement, s.BaseEngagement);
+                x.Attention = Walk(x.Attention, s.BaseAttention + levelShift[1]);
+                x.Engagement = Walk(x.Engagement, s.BaseEngagement + levelShift[0]);
                 x.Emotion = Walk(x.Emotion, s.BaseEmotion);
+                x.Participation = Walk(x.Participation, s.BaseParticipation + levelShift[2]);
                 x.SumAttention += x.Attention; x.SumEngagement += x.Engagement; x.SumEmotion += x.Emotion;
                 x.Samples++;
             }

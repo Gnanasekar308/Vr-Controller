@@ -346,30 +346,18 @@ namespace MediSimVR.EditorTools
             s.durationText = Secondary(sec, "Duration", "60 min");
             LE(s.durationText, TextBoxH(TextRole.Caption));
 
-            sec = Section(list, "Select students");
-            var bar = New("StudentsBar", sec);
+            sec = Section(list, "Select Quest devices");
+            var bar = New("QuestsBar", sec);
             LE(bar, SmallBtnH);
-            s.studentCount = Secondary(bar, "Count", "0 of 8 selected");
-            Stretch(s.studentCount.rectTransform, 0, 0, 280, 0);
-            TextMeshProUGUI lbl;
-            s.allStudents = Btn(bar, "All", BtnKind.Tertiary, null, "Select all", out lbl, SmallBtnH);
-            Place((RectTransform)s.allStudents.transform, 1f, 0.5f, 260f, SmallBtnH);
-            s.allStudentsLabel = lbl;
-            var rows = RowsBox(sec, "Students", 16f);
-            s.studentTemplate = CheckRow(rows, "StudentRow", true, false);
-
-            sec = Section(list, "Assign Quest devices");
-            bar = New("QuestsBar", sec);
-            LE(bar, SmallBtnH);
-            s.questCount = Secondary(bar, "Count", "0 assigned");
+            s.questCount = Secondary(bar, "Count", "0 Quests  •  0 students");
             Stretch(s.questCount.rectTransform, 0, 0, 320, 0);
             s.allQuests = Btn(bar, "AllOnline", BtnKind.Tertiary, null, "All online", SmallBtnH);
             Place((RectTransform)s.allQuests.transform, 1f, 0.5f, 300f, SmallBtnH);
-            rows = RowsBox(sec, "Quests", 16f);
+            var rows = RowsBox(sec, "Quests", 16f);
             s.questTemplate = CheckRow(rows, "QuestRow", true, true);
 
             TextMeshProUGUI saveLbl;
-            s.saveButton = BottomButton(s.transform, "Save", BtnKind.Primary, "check", "Save Meeting", out saveLbl);
+            s.saveButton = BottomButton(s.transform, "StartLive", BtnKind.Primary, "play_arrow", "Start Live", out saveLbl);
             return s;
         }
 
@@ -389,7 +377,8 @@ namespace MediSimVR.EditorTools
             Wave(s.transform);
             TextMeshProUGUI title, sub;
             Button back;
-            Header(s.transform, "Meeting 01", "Today  •  09:00 - 10:00", true, out title, out sub, out back);
+            var hdr = Header(s.transform, "Meeting 01", "Today  •  09:00 - 10:00", true, out title, out sub, out back);
+            s.deleteButton = CircleButton(hdr, "Delete", "delete", 1f, -48f, 118f);   // admin only
             s.titleText = title;
             s.subtitleText = sub;
             s.backButton = back;

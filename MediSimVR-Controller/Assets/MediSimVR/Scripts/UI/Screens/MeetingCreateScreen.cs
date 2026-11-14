@@ -6,21 +6,22 @@ using UnityEngine.UI;
 
 namespace MediSimVR
 {
-    // Create Meeting form: name, today's topic, date (day picker), class timing (start - end, 15 min steps),
-    // students (multi-select), Quest devices (multi-select; Online / In Use selectable, Offline not). Save -> list.
+    // Create Meeting form: name, today's topic, date (day picker), class timing (start - end, 15 min steps), Quest
+    // devices (multi-select). Only online Quests are listed (Online / In Use); every Quest shows the student signed in
+    // on it (name + ID entered on the headset), so picking a Quest adds its student. Start Live -> the meeting is saved
+    // and its live class starts at once.
     public class MeetingCreateScreen : AppScreen
     {
         public const int StepMinutes = 15;
 
-        public Button backButton, saveButton, prevDay, nextDay, startMinus, startPlus, endMinus, endPlus, allStudents, allQuests;
+        public Button backButton, saveButton, prevDay, nextDay, startMinus, startPlus, endMinus, endPlus, allQuests;
         public TMP_InputField nameInput, topicInput;
-        public TMP_Text dateText, startText, endText, durationText, studentCount, questCount, allStudentsLabel;
-        public CheckRowView studentTemplate, questTemplate;
+        public TMP_Text dateText, startText, endText, durationText, questCount;
+        public CheckRowView questTemplate;
 
-        private readonly List<CheckRowView> studentRows = new List<CheckRowView>();
         private readonly List<CheckRowView> questRows = new List<CheckRowView>();
-        private readonly HashSet<string> students = new HashSet<string>();
         private readonly HashSet<string> quests = new HashSet<string>();
+        private readonly List<QuestDevice> shown = new List<QuestDevice>();   // the online Quests with a student
         private int dayOffset, start, end;   // minutes after midnight
 
         public override void Init(Navigator n)
@@ -34,20 +35,12 @@ namespace MediSimVR
             startPlus.onClick.AddListener(() => MoveStart(StepMinutes));
             endMinus.onClick.AddListener(() => MoveEnd(-StepMinutes));
             endPlus.onClick.AddListener(() => MoveEnd(StepMinutes));
-            allStudents.onClick.AddListener(() =>
-            {
-                bool all = students.Count == Classroom.Students.Count;
-                students.Clear();
-                if (!all) foreach (var s in Classroom.Students) students.Add(s.Id);
-                Refresh();
-            });
             allQuests.onClick.AddListener(() =>
             {
                 quests.Clear();
-                foreach (var d in Svc.Devices) if (d.Online) quests.Add(d.Id);
+                foreach (var d in Svc.Devices) if (d.Online && Classroom.StudentOfQuest(d.Id).Length > 0) quests.Add(d.Id);
                 Refresh();
             });
-            studentTemplate.gameObject.SetActive(false);
             questTemplate.gameObject.SetActive(false);
         }
 
@@ -60,7 +53,6 @@ namespace MediSimVR
             int now = DateTime.Now.Hour * 60;
             start = Mathf.Clamp(now + 60, 8 * 60, 22 * 60);
             end = start + 60;
-            students.Clear();
             quests.Clear();
             base.OnShow();
         }
@@ -83,15 +75,16 @@ namespace MediSimVR
 
         public string NextName() { return "Meeting " + (Classroom.Meetings.Count + 1).ToString("00"); }
 
-        // the tour and the quick buttons use these
+        // the tour uses these
         public void Fill(string name, string topic) { nameInput.text = name; topicInput.text = topic; }
-        public void ToggleStudent(string id) { if (!students.Remove(id)) students.Add(id); Refresh(); }
+        public int SelectedCount { get { return quests.Count; } }
 
         public void ToggleQuest(string id)
         {
             var d = Classroom.Device(Svc, id);
             if (d == null) return;
-            if (!d.Online) { nav.Say(d.Name + " is offline: it cannot be assigned"); return; }
+            if (!d.Online) { nav.Say(d.Name + " is offline: it cannot be added"); return; }
+            if (Classroom.StudentOfQuest(id).Length == 0) { nav.Say(d.Name + " has no student signed in"); return; }
             if (!quests.Remove(id)) quests.Add(id);
             Refresh();
         }
@@ -100,18 +93,30 @@ namespace MediSimVR
         {
             string topic = topicInput.text.Trim();
             if (topic.Length == 0) { nav.Say("Enter today's topic"); return; }
-            if (students.Count == 0) { nav.Say("Select at least one student"); return; }
-            if (quests.Count == 0) { nav.Say("Assign at least one online Quest"); return; }
+            if (quests.Count == 0) { nav.Say("Select at least one online Quest"); return; }
             var m = new Meeting
             {
                 Name = nameInput.text.Trim().Length > 0 ? nameInput.text.Trim() : NextName(),
                 Topic = topic, Start = Hm(start), End = Hm(end), Date = DateTime.Today.AddDays(dayOffset)
             };
-            foreach (var s in Classroom.Students) if (students.Contains(s.Id)) m.StudentIds.Add(s.Id);
-            foreach (var d in Svc.Devices) if (quests.Contains(d.Id)) m.QuestIds.Add(d.Id);
+            foreach (var d in Svc.Devices)
+                if (quests.Contains(d.Id)) { m.QuestIds.Add(d.Id); m.StudentIds.Add(Classroom.StudentOfQuest(d.Id)); }
             Classroom.Add(m);
-            nav.Back();
-            nav.Say(m.Name + " saved");
+            Classroom.Selected = m;
+            if (Classroom.LiveActive)
+            {
+                // one live session at a time: the new meeting waits in the list
+                nav.Back();
+                nav.Say(m.Name + " saved. End " + Classroom.Live.Name + " to start it");
+                return;
+            }
+            // straight into the live class, already started
+            Classroom.Open(m);
+            foreach (var d in Svc.Devices) d.Selected = d.Online && m.QuestIds.Contains(d.Id);
+            nav.Tab(ScreenId.Live);
+            var live = nav.Get<LiveSessionScreen>();
+            if (live != null) live.StartSession();
+            nav.Say(m.Name + " is live");
         }
 
         public override void Refresh()
@@ -123,33 +128,27 @@ namespace MediSimVR
             endText.text = Hm(end);
             durationText.text = (end - start) + " min";
 
-            Keep(studentTemplate, studentRows, Classroom.Students.Count);
-            for (int i = 0; i < Classroom.Students.Count; i++)
-            {
-                var s = Classroom.Students[i];
-                var row = studentRows[i];
-                row.Bind(s.Id, s.Name, s.Email, students.Contains(s.Id), null, ColorRole.Primary);
-                row.button.onClick.RemoveAllListeners();
-                string id = s.Id;
-                row.button.onClick.AddListener(() => ToggleStudent(id));
-            }
-            studentCount.text = students.Count + " of " + Classroom.Students.Count + " selected";
-            allStudentsLabel.text = students.Count == Classroom.Students.Count ? "Clear" : "Select all";
-
-            var devs = Svc.Devices;
+            // only online Quests (an offline one cannot join); a Quest that went offline is dropped from the selection
+            shown.Clear();
+            foreach (var d in Svc.Devices)
+                if (d.Online && Classroom.StudentOfQuest(d.Id).Length > 0) shown.Add(d);
+                else quests.Remove(d.Id);
+            var devs = shown;
             Keep(questTemplate, questRows, devs.Count);
             for (int i = 0; i < devs.Count; i++)
             {
                 var d = devs[i];
                 var st = DeviceStatus.Of(d);
+                string sid = Classroom.StudentOfQuest(d.Id);
                 var row = questRows[i];
-                row.Bind(d.Id, d.Name, d.Online ? DeviceStatus.Battery(d) + "  •  " + d.Ip : "Offline: cannot be assigned",
+                row.Bind(d.Id, d.Name + "  •  " + (sid.Length > 0 ? Classroom.FirstName(sid) : "no student"),
+                    (sid.Length > 0 ? "ID " + Classroom.StudentById(sid).Code + "  •  " : "") + (d.Online ? DeviceStatus.Battery(d) : "Offline"),
                     d.Online ? quests.Contains(d.Id) : (bool?)null, DeviceStatus.Label(st), DeviceStatus.Role(st), !d.Online);
                 row.button.onClick.RemoveAllListeners();
                 string id = d.Id;
                 row.button.onClick.AddListener(() => ToggleQuest(id));
             }
-            questCount.text = quests.Count + " assigned";
+            questCount.text = quests.Count + (quests.Count == 1 ? " Quest" : " Quests") + "  •  " + quests.Count + (quests.Count == 1 ? " student" : " students");
         }
     }
 }

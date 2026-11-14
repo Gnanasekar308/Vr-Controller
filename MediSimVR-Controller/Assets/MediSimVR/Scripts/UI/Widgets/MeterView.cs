@@ -18,7 +18,7 @@ namespace MediSimVR
             if (fill != null) fill.anchorMax = new Vector2(v / 100f, fill.anchorMax.y);
             if (valueText != null) valueText.text = text ?? Mathf.RoundToInt(v) + "%";
             if (fillImage != null)
-                fillImage.color = ThemeManager.Get(v < DemoConfig.LowAttention ? ColorRole.Warning : role);
+                fillImage.color = ThemeManager.Get(v < Classroom.AlertLevel ? ColorRole.Warning : role);
         }
     }
 }

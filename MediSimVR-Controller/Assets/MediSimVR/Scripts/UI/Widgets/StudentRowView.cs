@@ -13,7 +13,9 @@ namespace MediSimVR
         public Image muteIcon, focusRing;
         public Sprite soundSprite, mutedSprite;
         public TMP_Text nameText, subText;
-        public MeterView attention, engagement, emotion;
+        public MeterView attention, engagement, emotion, participation;
+        public TMP_Text avatarText, statusText, batteryText;   // compact Live student row (null elsewhere)
+        public Image statusDot;
 
         public string studentId = "";
         private Action<string> onTap, onMute;
@@ -44,6 +46,17 @@ namespace MediSimVR
             if (attention != null) attention.gameObject.SetActive(present);
             if (engagement != null) engagement.gameObject.SetActive(present);
             if (emotion != null) emotion.gameObject.SetActive(present);
+            if (participation != null) participation.gameObject.SetActive(present);
+        }
+
+        // compact row: initials, Online / Offline / Absent, battery
+        public void SetDevice(string initials, string status, ColorRole statusRole, string battery)
+        {
+            if (avatarText != null) avatarText.text = initials;
+            Color c = ThemeManager.Get(statusRole);
+            if (statusText != null) { statusText.text = status; statusText.color = c; }
+            if (statusDot != null) statusDot.color = c;
+            if (batteryText != null) batteryText.text = battery;
         }
 
         public void SetValues(StudentMetrics m)
@@ -52,6 +65,7 @@ namespace MediSimVR
             if (attention != null) attention.Set(m.ShownAttention);
             if (engagement != null) engagement.Set(m.ShownEngagement);
             if (emotion != null) emotion.Set(m.ShownEmotion);
+            if (participation != null) participation.Set(m.ShownParticipation);
         }
     }
 }

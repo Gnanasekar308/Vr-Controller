@@ -11,7 +11,7 @@ namespace MediSimVR
     // -> Live session.
     public class MeetingDetailsScreen : AppScreen
     {
-        public Button backButton, actionButton;
+        public Button backButton, actionButton, deleteButton;
         public TMP_Text titleText, subtitleText, actionLabel, studentsValue, topicValue, dateValue, timingValue, questsTitle, attendanceTitle, attendanceHint;
         public CheckRowView questTemplate, attendanceTemplate;
 
@@ -25,6 +25,7 @@ namespace MediSimVR
             base.Init(n);
             backButton.onClick.AddListener(() => nav.Back());
             actionButton.onClick.AddListener(Act);
+            deleteButton.onClick.AddListener(Delete);
             questTemplate.gameObject.SetActive(false);
             attendanceTemplate.gameObject.SetActive(false);
         }
@@ -79,6 +80,23 @@ namespace MediSimVR
             nav.Tab(ScreenId.Live);
         }
 
+        // admin: delete the meeting (confirm); not while it is live
+        void Delete()
+        {
+            var m = M;
+            if (m == null || !Classroom.IsAdmin) return;
+            if (Classroom.LiveActive && Classroom.Live == m) { nav.Say("End the live session first"); return; }
+            nav.popup.Show("Delete " + m.Name + "?", "The meeting and its attendance are removed. This cannot be undone.", "Delete", () =>
+            {
+                string name = m.Name;
+                if (!Classroom.Delete(m)) return;
+                nav.Back();
+                nav.Say(name + " deleted");
+            }, "Cancel", destructive: true);
+        }
+
+        public void ConfirmDelete() { Delete(); }
+
         void ToggleAttendance(string id)
         {
             var m = M;
@@ -93,6 +111,7 @@ namespace MediSimVR
             var m = M;
             if (m == null) { titleText.text = "Meeting"; subtitleText.text = "No meeting selected"; return; }
             bool admin = Classroom.IsAdmin;
+            deleteButton.gameObject.SetActive(admin);
             titleText.text = m.Name;
             subtitleText.text = Classroom.DateText(m.Date) + "  •  " + m.Timing;
             studentsValue.text = m.StudentIds.Count.ToString();
@@ -107,12 +126,11 @@ namespace MediSimVR
                 var row = questRows[i];
                 if (d == null) { row.Bind(m.QuestIds[i], m.QuestIds[i], "Unknown device", null, "Offline", ColorRole.SubText, true); continue; }
                 var st = DeviceStatus.Of(d);
-                int users = 0;
-                foreach (var s in m.StudentIds) if (Classroom.QuestIdFor(m, s) == d.Id) users++;
-                row.Bind(d.Id, d.Name, (d.Online ? DeviceStatus.Battery(d) : "Offline") + "  •  " + users + (users == 1 ? " student" : " students"),
+                row.Bind(d.Id, d.Name + "  •  " + Classroom.FirstName(Classroom.StudentOfQuest(d.Id)),
+                    Classroom.StudentLabel(Classroom.StudentOfQuest(d.Id)) + "  •  " + (d.Online ? DeviceStatus.Battery(d) : "Offline"),
                     null, DeviceStatus.Label(st), DeviceStatus.Role(st), !d.Online);
             }
-            questsTitle.text = "Assigned Quest devices (" + m.QuestIds.Count + ")";
+            questsTitle.text = "Quest devices and students (" + m.QuestIds.Count + ")";
 
             Keep(attendanceTemplate, attendanceRows, m.StudentIds.Count);
             for (int i = 0; i < m.StudentIds.Count; i++)

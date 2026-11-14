@@ -193,13 +193,16 @@ namespace MediSimVR.EditorTools
 
                 yield return Screens(h, svc, ses, false);
             }
-            // landscape (only the Live session turns): 2340 x 1080
-            canvasRt.sizeDelta = new Vector2(Height, Width);
-            cam.orthographicSize = Width * 0.5f;
-            if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
-            rt = new RenderTexture((int)Height / 2, (int)Width / 2, 24);
-            cam.targetTexture = rt;
-            yield return Screens((int)Height, svc, ses, true);
+            // the Live class (always landscape): phone 2340 x 1080, tablet 2340 x 1462 (2560 x 1600); folder = canvas height
+            foreach (var shape in new[] { new Vector2(Height, Width), new Vector2(Height, 1462f) })
+            {
+                canvasRt.sizeDelta = shape;
+                cam.orthographicSize = shape.y * 0.5f;
+                if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
+                rt = new RenderTexture((int)shape.x / 2, (int)shape.y / 2, 24);
+                cam.targetTexture = rt;
+                yield return Screens((int)shape.y, svc, ses, true);
+            }
             canvasRt.sizeDelta = new Vector2(Width, Height);
             }
             ThemeManager.Load();   // the saved theme again
@@ -234,9 +237,8 @@ namespace MediSimVR.EditorTools
                 {
                     nav.Push(ScreenId.MeetingCreate);
                     create.Fill("Meeting 04", "Sepsis Recognition");
-                    create.ToggleStudent("s1");
-                    create.ToggleStudent("s2");
                     create.ToggleQuest("q2");
+                    create.ToggleQuest("q4");
                     ScrollTo(1f);
                 });
                 yield return Visit(h, ++n, "create_middle", () => ScrollTo(0.5f));
@@ -255,27 +257,30 @@ namespace MediSimVR.EditorTools
             svc.ControlFileId = "f2";
             svc.Send(svc.ControlFile);
             yield return Wait(DemoConfig.FakeSendSeconds + 0.4f);
-            string tag = landscape ? "live_landscape" : "live";
-            yield return Visit(h, ++n, tag + "_metrics", () => { nav.Tab(ScreenId.Live); live.SelectTab(0); });
-            yield return Visit(h, ++n, tag + "_metrics_bottom", () => ScrollTo(0f));
-            if (!landscape)
+            if (landscape)
             {
-                yield return Visit(h, ++n, "live_quest", () => live.SelectTab(1));
-                yield return Visit(h, ++n, "live_students", () => live.SelectTab(2));
-                yield return Visit(h, ++n, "live_students_bottom", () => ScrollTo(0f));
-                yield return Visit(h, ++n, "live_fullscreen", () => live.SetFullscreen(true));
+                // the Live class is always landscape: metrics | Quest screen + control bar | students
+                string tag = canvasRt.sizeDelta.y > 1200f ? "live_tablet" : "live_phone";
+                yield return Visit(h, ++n, tag + "_metrics", () => nav.Tab(ScreenId.Live));
+                yield return Visit(h, ++n, tag + "_recording", () => Classroom.SetRecording(true));
+                Classroom.SetRecording(false);
+                yield return Visit(h, ++n, tag + "_columns_bottom", () =>
+                {
+                    foreach (var sc in live.GetComponentsInChildren<ScrollRect>()) { Canvas.ForceUpdateCanvases(); if (sc.vertical) sc.verticalNormalizedPosition = 0f; }
+                });
+                yield return Visit(h, ++n, tag + "_fullscreen", () => live.SetFullscreen(true));
                 live.SetFullscreen(false);
-                live.SelectTab(0);
-                yield return Visit(h, ++n, "live_end_popup", () =>
-                    nav.popup.Show("End session?", "The session ends for all students. The report opens.", "End session", null, "Cancel", destructive: true));
+                yield return Visit(h, ++n, tag + "_end_popup", () =>
+                    nav.popup.Show("End class?", "The session ends for all students. The report opens.", "End class", null, "Cancel", destructive: true));
                 nav.popup.Hide();
-
-                // the reused screens inside the session: Send, Control, Scene
-                yield return Visit(h, ++n, "send", () => nav.Push(ScreenId.Send));
+            }
+            else
+            {
+                // the reused screens: Send, Control, Scene (portrait)
+                yield return Visit(h, ++n, "send", () => { nav.Tab(ScreenId.Devices); nav.Push(ScreenId.Send); });
                 yield return Visit(h, ++n, "control_top", () => { nav.Push(ScreenId.Control); ScrollTo(1f); });
                 yield return Visit(h, ++n, "control_middle", () => ScrollTo(0.5f));
                 yield return Visit(h, ++n, "control_bottom", () => ScrollTo(0f));
-                nav.Tab(ScreenId.Live);
                 nav.Push(ScreenId.Scene);
                 yield return Wait(DemoConfig.SceneLoadSeconds + 0.6f);   // the demo scene arrives
                 var scene = nav.Get<SceneScreen>();
@@ -311,8 +316,12 @@ namespace MediSimVR.EditorTools
                 yield return Visit(h, ++n, "student_details", () => { nav.Push(ScreenId.MeetingDetails); ScrollTo(1f); });
             }
             Classroom.Open(mine[0]);
-            yield return Visit(h, ++n, (landscape ? "student_live_landscape" : "student_live"), () => nav.Tab(ScreenId.Live));
-            yield return Visit(h, ++n, (landscape ? "student_live_landscape_bottom" : "student_live_bottom"), () => ScrollTo(0f));
+            if (landscape)
+            {
+                string st = canvasRt.sizeDelta.y > 1200f ? "student_live_tablet" : "student_live_phone";
+                yield return Visit(h, ++n, st, () => nav.Tab(ScreenId.Live));
+                yield return Visit(h, ++n, st + "_bottom", () => ScrollTo(0f));
+            }
             Classroom.End("", "");
             Classroom.Logout();
             foreach (var d in svc.Devices) d.Selected = false;
