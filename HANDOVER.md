@@ -13,9 +13,7 @@ Date: 2026-11-14. Owner until now: Gnanasekar (with Claude Code).
   Editor layout audit: 236 screens at phone and tablet sizes, 0 problems. Never tested: a real tablet, real users,
   demo mode OFF with real Quests in a classroom.
 
-> **Important:** the latest UI work (Live classroom redesign, Quest + student pairing, meeting delete, metric
-> sliders, REC) is **on Gnanasekar's PC and not committed yet**. GitHub `main` is at `909eea5`. Ask him to commit
-> and push before you start, or copy the project folder.
+> Code: GitHub `main` at `527da3c` (2026-11-14) has everything in this guide.
 
 ## 1a. What you receive (handover package)
 
