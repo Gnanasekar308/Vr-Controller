@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace MediSimVR
 {
     public enum ScreenId { Splash, RoleSelect, Login, Dashboard, Meetings, MeetingCreate, MeetingDetails, Live, Report,
-        Devices, Send, Control, Scene, Settings, Notifications, EditApp }
+        Devices, Send, Control, Scene, Settings, Notifications, EditApp, MeetingContent }
 
     [Serializable]
     public class NavItem
@@ -132,6 +132,7 @@ namespace MediSimVR
             {
                 case ScreenId.Notifications: return ScreenId.Dashboard;
                 case ScreenId.MeetingCreate:
+                case ScreenId.MeetingContent:
                 case ScreenId.MeetingDetails: return ScreenId.Meetings;
                 case ScreenId.Report:
                 case ScreenId.Scene: return ScreenId.Live;

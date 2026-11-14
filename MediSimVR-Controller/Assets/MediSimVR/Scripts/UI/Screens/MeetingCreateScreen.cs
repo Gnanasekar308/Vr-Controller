@@ -8,8 +8,8 @@ namespace MediSimVR
 {
     // Create Meeting form: name, today's topic, date (day picker), class timing (start - end, 15 min steps), Quest
     // devices (multi-select). Only online Quests are listed (Online / In Use); every Quest shows the student signed in
-    // on it (name + ID entered on the headset), so picking a Quest adds its student. Start Live -> the meeting is saved
-    // and its live class starts at once.
+    // on it (name + ID entered on the headset), so picking a Quest adds its student. Next -> step 2 (MeetingContent:
+    // what to play, Scene, Start Live). The form is kept while step 2 is open.
     public class MeetingCreateScreen : AppScreen
     {
         public const int StepMinutes = 15;
@@ -23,12 +23,13 @@ namespace MediSimVR
         private readonly HashSet<string> quests = new HashSet<string>();
         private readonly List<QuestDevice> shown = new List<QuestDevice>();   // the online Quests with a student
         private int dayOffset, start, end;   // minutes after midnight
+        private bool fresh = true;           // reset the form the next time it opens
 
         public override void Init(Navigator n)
         {
             base.Init(n);
             backButton.onClick.AddListener(() => nav.Back());
-            saveButton.onClick.AddListener(Save);
+            saveButton.onClick.AddListener(Next);
             prevDay.onClick.AddListener(() => { dayOffset = Mathf.Max(0, dayOffset - 1); Refresh(); });
             nextDay.onClick.AddListener(() => { dayOffset = Mathf.Min(60, dayOffset + 1); Refresh(); });
             startMinus.onClick.AddListener(() => MoveStart(-StepMinutes));
@@ -44,9 +45,17 @@ namespace MediSimVR
             questTemplate.gameObject.SetActive(false);
         }
 
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            // leaving for step 2 keeps the form; leaving anywhere else starts a new one next time
+            if (nav != null && nav.Current != ScreenId.MeetingContent && nav.Current != ScreenId.Scene) fresh = true;
+        }
+
         public override void OnShow()
         {
-            // a fresh form every time it opens
+            if (!fresh) { base.OnShow(); return; }
+            fresh = false;
             nameInput.text = "";
             topicInput.text = "";
             dayOffset = 0;
@@ -89,34 +98,41 @@ namespace MediSimVR
             Refresh();
         }
 
-        void Save()
+        // Next: check the form, then step 2 (content)
+        void Next()
         {
-            string topic = topicInput.text.Trim();
-            if (topic.Length == 0) { nav.Say("Enter today's topic"); return; }
+            if (topicInput.text.Trim().Length == 0) { nav.Say("Enter today's topic"); return; }
             if (quests.Count == 0) { nav.Say("Select at least one online Quest"); return; }
+            var content = nav.Get<MeetingContentScreen>();
+            if (content != null) content.Begin();
+            nav.Push(ScreenId.MeetingContent);
+        }
+
+        // step 2 Start Live: save the meeting and open its live class, Ready (nothing plays until Play)
+        public void StartLive(string fileId)
+        {
             var m = new Meeting
             {
                 Name = nameInput.text.Trim().Length > 0 ? nameInput.text.Trim() : NextName(),
-                Topic = topic, Start = Hm(start), End = Hm(end), Date = DateTime.Today.AddDays(dayOffset)
+                Topic = topicInput.text.Trim(), Start = Hm(start), End = Hm(end), Date = DateTime.Today.AddDays(dayOffset)
             };
             foreach (var d in Svc.Devices)
                 if (quests.Contains(d.Id)) { m.QuestIds.Add(d.Id); m.StudentIds.Add(Classroom.StudentOfQuest(d.Id)); }
             Classroom.Add(m);
             Classroom.Selected = m;
+            fresh = true;
             if (Classroom.LiveActive)
             {
                 // one live session at a time: the new meeting waits in the list
-                nav.Back();
+                nav.Tab(ScreenId.Meetings);
                 nav.Say(m.Name + " saved. End " + Classroom.Live.Name + " to start it");
                 return;
             }
-            // straight into the live class, already started
             Classroom.Open(m);
+            Classroom.PendingFileId = fileId ?? "";
             foreach (var d in Svc.Devices) d.Selected = d.Online && m.QuestIds.Contains(d.Id);
             nav.Tab(ScreenId.Live);
-            var live = nav.Get<LiveSessionScreen>();
-            if (live != null) live.StartSession();
-            nav.Say(m.Name + " is live");
+            nav.Say(m.Name + " is ready: tap Play to start");
         }
 
         public override void Refresh()

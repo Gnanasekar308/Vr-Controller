@@ -243,6 +243,7 @@ namespace MediSimVR.EditorTools
                 });
                 yield return Visit(h, ++n, "create_middle", () => ScrollTo(0.5f));
                 yield return Visit(h, ++n, "create_bottom", () => ScrollTo(0f));
+                yield return Visit(h, ++n, "meeting_content", () => { svc.ControlFileId = "f2"; nav.Push(ScreenId.MeetingContent); });
                 Classroom.Selected = Classroom.Meetings[0];
                 yield return Visit(h, ++n, "details_top", () => { nav.Tab(ScreenId.Meetings); nav.Push(ScreenId.MeetingDetails); ScrollTo(1f); });
                 yield return Visit(h, ++n, "details_bottom", () => ScrollTo(0f));

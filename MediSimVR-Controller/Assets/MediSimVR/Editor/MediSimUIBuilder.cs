@@ -94,6 +94,7 @@ namespace MediSimVR.EditorTools
             nav.screens.Add(BuildDashboard(screensRoot));
             nav.screens.Add(BuildMeetings(screensRoot));
             nav.screens.Add(BuildMeetingCreate(screensRoot));
+            nav.screens.Add(BuildMeetingContent(screensRoot));
             nav.screens.Add(BuildMeetingDetails(screensRoot));
             nav.screens.Add(BuildLive(screensRoot));
             nav.screens.Add(BuildReport(screensRoot));

@@ -201,14 +201,31 @@ namespace MediSimVR
             ScrollTo(create, 1f); yield return Shot("create_meeting_filled");
             ScrollTo(create, 0f); yield return Shot("create_meeting_quests");
             Click(create.saveButton);
+            Expect(ScreenId.MeetingContent, "Next opens step 2 (content)");
+            var contentStep = nav.Get<MeetingContentScreen>();
+            Click(contentStep.videoButton);
+            if (nav.actionSheet.root.activeSelf) Click(nav.actionSheet.options[1]);   // CPR_Training.mp4
+            Check(contentStep.FileId == "f2", "a video is chosen for the class (" + contentStep.FileId + ")");
+            yield return Shot("meeting_content");
+            Click(contentStep.sceneButton);
+            Expect(ScreenId.Scene, "the Scene tile opens the Live Scene");
+            nav.Back();
+            Expect(ScreenId.MeetingContent, "back from the Scene returns to step 2");
+            Click(contentStep.startLiveButton);
             Expect(ScreenId.Live, "Start Live opens the new meeting live");
             var lm = Classroom.Live;
-            Check(lm != null && lm.Name == "Meeting 04" && Classroom.State == LiveState.Running && lm.StudentIds.Count == 3 && lm.StudentIds.Contains("s2"),
-                "the new meeting is live and started, with the students of its Quests");
+            Check(lm != null && lm.Name == "Meeting 04" && Classroom.State == LiveState.Ready && lm.StudentIds.Count == 3 && lm.StudentIds.Contains("s2"),
+                "the new meeting is live (Ready) with the students of its Quests"); 
             float t = 0f;
             while (!live.Landscape && t < 5f) { t += Time.unscaledDeltaTime; yield return null; }
             Check(live.Landscape && !nav.navBar.activeSelf, "the live class opens in the landscape (tablet) layout, no bottom bar");
-            Check(ses == null || ses.Active, "the session record starts with Start Live");
+            Check(!AnyPlaying(svc), "nothing plays when the live page opens");
+            yield return Shot("live_ready");
+            Click(live.startButton);
+            Check(Classroom.State == LiveState.Running, "Play starts the session");
+            Check(ses == null || ses.Active, "the session record starts with Play");
+            yield return new WaitForSecondsRealtime(DemoConfig.FakeSendSeconds + Mathf.Max(settle, 2.5f));
+            Check(AnyPlaying(svc), "Play plays the chosen video on the meeting's Quests");
             yield return new WaitForSecondsRealtime(Mathf.Max(settle, 2f));
             Check(Classroom.Elapsed > 0.5f, "the session clock runs");
             yield return Shot("live_metrics");

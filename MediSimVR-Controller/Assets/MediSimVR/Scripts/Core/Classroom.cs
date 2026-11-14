@@ -98,6 +98,7 @@ namespace MediSimVR
         public static readonly List<Meeting> Meetings = new List<Meeting>();
         public static Meeting Selected;          // the meeting the details screen shows
         public static int SessionsToday { get; private set; }
+        public static string PendingFileId = "";   // chosen at Create Meeting step 2; sent + played on the first Play
 
         // ---------- live session ----------
         public static Meeting Live { get; private set; }
@@ -191,6 +192,7 @@ namespace MediSimVR
 
         static void ClearLive()
         {
+            PendingFileId = "";
             metrics.Clear();
             events.Clear();
             content.Clear();

@@ -11,7 +11,8 @@ namespace MediSimVR
     //           metrics, alert level; students
     //           under the alert level), students' questions (New, tap = answered), live comments, sound (mute all),
     //           per student meters + mute (tap = details, Show Quest screen)
-    //   Centre: the Quest screen (full column) + control bar: volume, Start, Pause, End Class, Record (red REC chip in
+    //   Centre: the Quest screen (full column) + control bar: volume, Play (starts the session and the content chosen at
+    //           Create Meeting; nothing plays before), Pause, End Class, Record (red REC chip in
     //           the header while recording), Instruction (read aloud on the Quests), Content (the Send picker)
     //   Right : class overview (subject, topic, attendance, Quests) + students (avatar, online dot, mute, battery)
     // Student: the same Quest screen (own Quest) + own status, focus, sound, Leave; no admin controls.
@@ -214,7 +215,7 @@ namespace MediSimVR
         // Content: the Send picker (type, then file), sent to the meeting's online Quests
         void PickContent()
         {
-            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Start to begin the session"); return; }
+            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Play to begin the session"); return; }
             chooser.Choose(() =>
             {
                 var f = Svc.ControlFile;
@@ -240,6 +241,20 @@ namespace MediSimVR
             if (!first && Svc.SelectedOnline().Count > 0)
                 foreach (var d in Svc.SelectedOnline()) if (d.State == DeviceState.Paused) { Svc.Resume(); break; }
             SessionLog.Add(SessionEventKind.Info, "Host", first ? "session started: " + Classroom.Live.Name : "session resumed");
+            // the content chosen at Create Meeting plays now (not when the live page opened)
+            MediaFile pending = null;
+            foreach (var f in Svc.Files) if (f.Id == Classroom.PendingFileId) pending = f;
+            Classroom.PendingFileId = "";
+            var targets = Svc.SelectedOnline();
+            if (pending != null && targets.Count > 0)
+            {
+                chooser.Send(pending, targets, () =>
+                {
+                    Classroom.Played(pending.Name);
+                    SessionLog.Add(SessionEventKind.Content, "Host", "sent " + pending.Name + " to " + targets.Count + " Quest(s)");
+                });
+                return;
+            }
             nav.Say(first ? "Session started" : "Session resumed");
         }
 
@@ -269,7 +284,7 @@ namespace MediSimVR
 
         public void ToggleRecord()
         {
-            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Start to begin the session"); return; }
+            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Play to begin the session"); return; }
             bool on = !Classroom.Recording;
             Classroom.SetRecording(on);
             SessionLog.Add(SessionEventKind.Info, "Host", on ? "class recording started" : "class recording stopped");
@@ -280,7 +295,7 @@ namespace MediSimVR
         // important instruction: the meeting's Quests read it aloud (demo: the phone speaks it)
         void Instruction()
         {
-            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Start to begin the session"); return; }
+            if (Classroom.State == LiveState.Ready) { nav.Say("Tap Play to begin the session"); return; }
             var list = Ses != null ? Ses.Instructions : (IReadOnlyList<string>)DemoConfig.Instructions;
             int count = Mathf.Min(list.Count, nav.actionSheet.options.Count);
             var names = new string[count];
@@ -484,7 +499,10 @@ namespace MediSimVR
             var f = FileOf(q);
             string who = Classroom.IsAdmin ? Classroom.FirstName(Classroom.FocusStudentId) : "You";
             questName.text = (q != null ? q.Name : "No Quest") + "  •  " + who;
-            questContent.text = q == null ? "No Quest assigned" : !q.Online ? "Offline" : DeviceStatus.Content(q, Svc);
+            MediaFile ready = null;
+            foreach (var x in Svc.Files) if (x.Id == Classroom.PendingFileId) ready = x;
+            questContent.text = q == null ? "No Quest assigned" : !q.Online ? "Offline"
+                : ready != null ? "Ready: " + ready.Name + "  •  tap Play" : DeviceStatus.Content(q, Svc);
             questState.text = q == null || !q.Online ? "NO SIGNAL" : Classroom.State == LiveState.Paused ? "SESSION PAUSED"
                 : q.State == DeviceState.Playing ? "LIVE VIEW" : q.State == DeviceState.Paused ? "PAUSED" : "CONNECTED";
             bool timed = f != null && f.DurationSec > 0 && q != null && (q.State == DeviceState.Playing || q.State == DeviceState.Paused);
@@ -507,7 +525,7 @@ namespace MediSimVR
                 myStatusText.text = (running ? "In class" : Classroom.State == LiveState.Paused ? "Class paused" : "Waiting") + (q != null ? "  •  " + DeviceStatus.Content(q, Svc) : "");
             }
 
-            startLabel.text = Classroom.State == LiveState.Paused ? "Resume" : "Start";
+            startLabel.text = Classroom.State == LiveState.Paused ? "Resume" : "Play";
             startButton.interactable = Classroom.State != LiveState.Running;
             pauseSessionButton.interactable = running;
 

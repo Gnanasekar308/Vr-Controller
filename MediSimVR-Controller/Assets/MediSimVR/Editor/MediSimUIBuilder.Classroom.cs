@@ -319,7 +319,7 @@ namespace MediSimVR.EditorTools
             Wave(s.transform);
             TextMeshProUGUI title, sub;
             Button back;
-            Header(s.transform, "Create Meeting", "Class details, students and Quests", true, out title, out sub, out back);
+            Header(s.transform, "Create Meeting", "Step 1 of 2  •  Class details and Quests", true, out title, out sub, out back);
             s.backButton = back;
             var list = ScrollList(s.transform, "Form", HeadH, 48f + BtnH + CardGap);
             list.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
@@ -357,7 +357,38 @@ namespace MediSimVR.EditorTools
             s.questTemplate = CheckRow(rows, "QuestRow", true, true);
 
             TextMeshProUGUI saveLbl;
-            s.saveButton = BottomButton(s.transform, "StartLive", BtnKind.Primary, "play_arrow", "Start Live", out saveLbl);
+            s.saveButton = BottomButton(s.transform, "Next", BtnKind.Primary, "chevron_right", "Next", out saveLbl);
+            return s;
+        }
+
+        // Create Meeting step 2: Video / Audio / Image + Scene, preview, Start Live
+        static AppScreen BuildMeetingContent(Transform parent)
+        {
+            var s = MakeScreen<MeetingContentScreen>(parent, "MeetingContent", ScreenId.MeetingContent);
+            Wave(s.transform);
+            TextMeshProUGUI title, sub;
+            Button back;
+            Header(s.transform, "Choose content", "Step 2 of 2  •  What plays on the Quests", true, out title, out sub, out back);
+            s.backButton = back;
+            s.subtitleText = sub;
+            var list = ScrollList(s.transform, "List", HeadH, 48f + BtnH + CardGap);
+            list.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
+            var sec = Section(list, "Play on the Quests");
+            s.targetText = Secondary(sec, "Target", "Plays on 3 Quests when you tap Play in the live class");
+            s.targetText.enableWordWrapping = true;
+            s.targetText.overflowMode = TextOverflowModes.Overflow;
+            var row = New("Types", sec);
+            LE(row, 128f);
+            HLayout(row.gameObject, 16f);
+            s.videoButton = ActionTile(row, "Video", "movie");
+            s.audioButton = ActionTile(row, "Audio", "music_note");
+            s.imageButton = ActionTile(row, "Image", "image");
+            s.sceneButton = ActionTile(row, "Scene", "view_in_ar", ColorRole.Secondary);
+            var holder = New("PreviewCard", list);
+            LE(holder, 880f);
+            s.preview = PreviewCard(holder, "Tap Video, Audio or Image to choose what plays");
+            TextMeshProUGUI lbl;
+            s.startLiveButton = BottomButton(s.transform, "StartLive", BtnKind.Primary, "play_arrow", "Start Live", out lbl);
             return s;
         }
 
