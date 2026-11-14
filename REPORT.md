@@ -36,5 +36,12 @@ Live classroom redesign and meeting changes, from the user's mockup and correcti
 ## Not verified
 - Real tablet; real users; demo mode OFF; the backend parts (all classroom data is mock, see HANDOVER.md section 6).
 
+## Follow-up (same day)
+- Create Meeting: Next (step 1 of 2) -> new step 2 `MeetingContentScreen`: Video / Audio / Image + Scene, preview,
+  Start Live. The live class opens Ready; the chosen content is sent and played only on Play (bar tile "Play").
+- Tests: smoke `screens 47, errors 0 -> PASSED` (73 checks); layout audit `244 screens, 0 problems`; phone
+  (install 17:23:32) tour `done 47 screens`, 73 checks OK, 0 FAILED, 0 E/Unity: "Next opens step 2", "a video is
+  chosen for the class", "nothing plays when the live page opens", "Play plays the chosen video on the meeting's Quests".
+
 ## Review
 No Codex review this round (the user asked for UI-only changes tested here, without Codex).

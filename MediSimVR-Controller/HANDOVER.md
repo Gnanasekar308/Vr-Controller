@@ -13,7 +13,7 @@ Date: 2026-11-14. Owner until now: Gnanasekar (with Claude Code).
   Editor layout audit: 236 screens at phone and tablet sizes, 0 problems. Never tested: a real tablet, real users,
   demo mode OFF with real Quests in a classroom.
 
-> Code: GitHub `main` at `527da3c` (2026-11-14) has everything in this guide.
+> Code: GitHub `main` (2026-11-14) has everything in this guide.
 
 ## 1a. What you receive (handover package)
 
@@ -91,7 +91,8 @@ Settings; student Dashboard, Meetings, Settings. Live is full screen landscape (
 | Splash, Role, Login | `SplashScreen`, `RoleSelectScreen`, `LoginScreen` | `MediSimUIBuilder.Classroom.cs` |
 | Dashboard (admin + student) | `DashboardScreen` | `MediSimUIBuilder.Classroom.cs` |
 | Meeting Room / Available meetings | `MeetingsScreen` | `MediSimUIBuilder.Classroom.cs` |
-| Create Meeting (online Quests only, each with its student; **Start Live** saves the meeting and starts its live class) | `MeetingCreateScreen` | `MediSimUIBuilder.Classroom.cs` |
+| Create Meeting step 1 (online Quests only, each with its student; **Next**) | `MeetingCreateScreen` | `MediSimUIBuilder.Classroom.cs` |
+| Create Meeting step 2 (Video / Audio / Image + Scene; **Start Live** saves the meeting and opens the live class Ready: nothing plays until **Play**) | `MeetingContentScreen` | `MediSimUIBuilder.Classroom.cs` |
 | Meeting details (attendance, Start / Join, Delete) | `MeetingDetailsScreen` | `MediSimUIBuilder.Classroom.cs` |
 | Live classroom (metrics + sliders, questions, comments, Quest view, students, control bar, REC) | `LiveSessionScreen` | `MediSimUIBuilder.Live.cs` |
 | Session report | `SessionReportScreen` | `MediSimUIBuilder.Live.cs` |
