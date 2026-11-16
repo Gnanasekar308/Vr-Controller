@@ -12,7 +12,7 @@ namespace MediSimVR
     {
         public MediaPreviewView preview;
         public TMP_Text sendLabel, subtitleText, targetText;
-        public Button selectButton, sendButton, changeTargetButton;
+        public Button selectButton, sendButton, changeTargetButton, sceneButton;   // sceneButton: "Live Scene" row
 
         private ContentChooser chooser;
         private readonly StringBuilder sb = new StringBuilder();
@@ -27,6 +27,7 @@ namespace MediSimVR
             preview.editButton.onClick.AddListener(() => chooser.EditText());
             sendButton.onClick.AddListener(SendSelected);
             changeTargetButton.onClick.AddListener(() => nav.Push(ScreenId.Devices));
+            sceneButton.onClick.AddListener(() => nav.Push(ScreenId.Scene));
         }
 
         public override void OnShow()
@@ -73,7 +74,7 @@ namespace MediSimVR
                 var q = ControlFlow.MyQuest(Svc);
                 targetText.text = "My Quest: " + (q == null ? "no Quest online" : q.Name + (q.Online ? "" : " (offline)"));
             }
-            else targetText.text = sel.Count == 0 ? "No Quest selected" : "Send to: " + Names(sel);
+            else targetText.text = sel.Count == 0 ? "No Quest selected" : "Send to: " + (sel.Count > 2 ? sel[0].Name + " +" + (sel.Count - 1) : Names(sel));
         }
     }
 }

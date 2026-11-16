@@ -45,9 +45,23 @@ namespace MediSimVR
             }
         }
 
+        // "86% battery"; "" when the device does not report it (Battery = -1) or is offline: callers hide it
         public static string Battery(QuestDevice d)
         {
-            return d.Online && d.Battery >= 0 ? d.Battery + "% battery" : "battery --";
+            return d.Online && d.Battery >= 0 ? d.Battery + "% battery" : "";
+        }
+
+        // "a  •  b" without empty parts (e.g. an unknown battery)
+        public static string Join(params string[] parts)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var p in parts)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
+                if (sb.Length > 0) sb.Append("  •  ");
+                sb.Append(p);
+            }
+            return sb.ToString();
         }
     }
 }

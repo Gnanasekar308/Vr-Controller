@@ -20,7 +20,7 @@ Date: 2026-11-14. Owner until now: Gnanasekar (with Claude Code).
 | Item | Where | Why |
 |---|---|---|
 | **Source code** (whole repo) | private GitHub repo, branch `main` (access from Gnanasekar), or a zip of the repo folder **without** `MediSimVR-Controller/Library`, `Temp`, `Logs`, `Builds` and without `backup/`, `main-backup/`, `*.zip` | the project you work in |
-| **This guide** | `HANDOVER.md` (repo root) | start here |
+| **This guide** | `MediSimVR-Controller/HANDOVER.md` (inside the Unity project folder) | start here |
 | **Phone APK** (current build) | `MediSimVR-Controller/Builds/MediSimVR-Controller.apk` (not in git, sent as a file) | install and try the app without building |
 | **Demo script** | `DEMO.md` (repo root) | how the demo is shown (some screens changed since, see section 4) |
 | **Controller + Receiver integration guide** | `MediSimVR_Controller_and_Receiver_Integration_V1_Guide_1.pdf` (repo root) | the protocol between this app and the Quest receiver |
@@ -58,7 +58,7 @@ Repo root:
 |---|---|
 | `MediSimVR-Controller/` | the Unity project |
 | `DEMO.md` | click-by-click demo script (partly older than the latest Live redesign) |
-| `HANDOVER.md` | this guide |
+| `MediSimVR-Controller/HANDOVER.md` | this guide (next to the Unity project) |
 | `CLAUDE.md`, `AGENTS.md` | rules used by the AI tools (work loop, review checklist) |
 | `Tools/capture-demo-screens.sh` | runs the demo tour on a USB phone and saves screenshots to `demo-screens/` |
 | `REPORT.md`, `REVIEW.md` | last task report / review (history) |

@@ -127,7 +127,7 @@ namespace MediSimVR
                 if (d == null) { row.Bind(m.QuestIds[i], m.QuestIds[i], "Unknown device", null, "Offline", ColorRole.SubText, true); continue; }
                 var st = DeviceStatus.Of(d);
                 row.Bind(d.Id, d.Name + "  •  " + Classroom.FirstName(Classroom.StudentOfQuest(d.Id)),
-                    Classroom.StudentLabel(Classroom.StudentOfQuest(d.Id)) + "  •  " + (d.Online ? DeviceStatus.Battery(d) : "Offline"),
+                    DeviceStatus.Join(Classroom.StudentLabel(Classroom.StudentOfQuest(d.Id)), d.Online ? DeviceStatus.Battery(d) : "Offline"),
                     null, DeviceStatus.Label(st), DeviceStatus.Role(st), !d.Online);
             }
             questsTitle.text = "Quest devices and students (" + m.QuestIds.Count + ")";

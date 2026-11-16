@@ -28,7 +28,7 @@ namespace MediSimVR.EditorTools
             var chip = Panel(list, "Target", 100f);
             var ti = Icon(chip, "Icon", "vr_headset", ColorRole.Primary, IconSize);
             Place(ti.rectTransform, 0f, 0.5f, IconSize, IconSize, CardPad, 0f);
-            s.targetText = Txt(chip, "Target", "Playing on: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            s.targetText = Shrink(Txt(chip, "Target", "Playing on: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold));
             Stretch(s.targetText.rectTransform, CardPad + IconSize + 20f, 0, 236, 0);
             s.changeTargetButton = Btn(chip, "Change", BtnKind.Tertiary, null, "Change", 72f);
             Place((RectTransform)s.changeTargetButton.transform, 1f, 0.5f, 196f, 72f, -16f, 0f);
@@ -196,6 +196,10 @@ namespace MediSimVR.EditorTools
             s.recordText.enableWordWrapping = true;
             s.recordText.overflowMode = TextOverflowModes.Ellipsis;
             TopLeft(s.recordText.rectTransform, CardPad + IconSize + 20f, 78f, CardPad, 3f * TextBoxH(TextRole.Caption));
+
+            // ---- Live Scene (move and rotate the objects on the Quests)
+            TextMeshProUGUI sceneSub;
+            s.sceneButton = SettingRow(list, "view_in_ar", "Live Scene", "Move and rotate objects on the Quests", out sceneSub);
             return s;
         }
 
@@ -266,7 +270,7 @@ namespace MediSimVR.EditorTools
             }
             Divider(rt, 270f, true);
             // text boxes are taller than one line even at text size L: TextMeshPro hides a line that does not fit (Ellipsis)
-            v.nameText = CardTitle(rt, "Name", "Quest-01");
+            v.nameText = Shrink(CardTitle(rt, "Name", "Quest-01"));
             TopLeft(v.nameText.rectTransform, 296f, 10f, 270f, 72f);
             v.infoText = Secondary(rt, "Info", "86% battery  •  192.168.1.25");
             TopLeft(v.infoText.rectTransform, 296f, 80f, CardPad, 46f);

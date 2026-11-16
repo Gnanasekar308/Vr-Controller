@@ -155,7 +155,7 @@ namespace MediSimVR.EditorTools
                 var card = Shape(cell, "Card", ColorRole.Card, ShapeKind.Card);
                 Stretch(card.rectTransform);
                 card.raycastTarget = false;
-                s.statValues[i] = Txt(card.transform, "Value", "0", TextRole.Title, ColorRole.Primary, TextWeight.Heading, TextAlignmentOptions.Center);
+                s.statValues[i] = Shrink(Txt(card.transform, "Value", "0", TextRole.Title, ColorRole.Primary, TextWeight.Heading, TextAlignmentOptions.Center), 0.3f);
                 TopBand(s.statValues[i].rectTransform, 28f, TextBoxH(TextRole.Title), 12f);
                 s.statLabels[i] = Txt(card.transform, "Label", labels[i], TextRole.Small, ColorRole.SubText, TextWeight.SemiBold, TextAlignmentOptions.Center);
                 BottomBand(s.statLabels[i].rectTransform, 26f, TextBoxH(TextRole.Small), 12f);
@@ -277,7 +277,7 @@ namespace MediSimVR.EditorTools
                 x = 112f;
             }
             float right = withChip ? 230f : 32f;
-            v.titleText = RowTitle(r, "Title", "Name");
+            v.titleText = Shrink(RowTitle(r, "Title", "Name"));
             TopLeft(v.titleText.rectTransform, x, 14f, right, TextBoxH(TextRole.Body));
             v.subText = Secondary(r, "Sub", "");
             TopLeft(v.subText.rectTransform, x, 14f + TextBoxH(TextRole.Body), right, TextBoxH(TextRole.Caption));

@@ -158,7 +158,7 @@ namespace MediSimVR
                 string sid = Classroom.StudentOfQuest(d.Id);
                 var row = questRows[i];
                 row.Bind(d.Id, d.Name + "  •  " + (sid.Length > 0 ? Classroom.FirstName(sid) : "no student"),
-                    (sid.Length > 0 ? "ID " + Classroom.StudentById(sid).Code + "  •  " : "") + (d.Online ? DeviceStatus.Battery(d) : "Offline"),
+                    DeviceStatus.Join(sid.Length > 0 ? "ID " + Classroom.StudentById(sid).Code : "", d.Online ? DeviceStatus.Battery(d) : "Offline"),
                     d.Online ? quests.Contains(d.Id) : (bool?)null, DeviceStatus.Label(st), DeviceStatus.Role(st), !d.Online);
                 row.button.onClick.RemoveAllListeners();
                 string id = d.Id;

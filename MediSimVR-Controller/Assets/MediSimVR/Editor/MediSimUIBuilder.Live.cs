@@ -193,6 +193,7 @@ namespace MediSimVR.EditorTools
             TopLeft(v.nameText.rectTransform, 116f, 18f, 196f, TextBoxH(TextRole.Caption));
             v.subText = Secondary(rt, "Sub", "Quest");
             v.subText.GetComponent<ThemedText>().size = TextRole.Small;
+            Shrink(v.subText);
             TopLeft(v.subText.rectTransform, 116f, 18f + TextBoxH(TextRole.Caption), 196f, TextBoxH(TextRole.Small));
             var hit = Img(rt, "Mute", circle, ColorRole.PrimarySoft);
             Place(hit.rectTransform, 1f, 0.5f, 72f, 72f, -100f, 0f);
@@ -268,7 +269,15 @@ namespace MediSimVR.EditorTools
             var ml = ScrollList(s.transform, "MetricsPanel", H, 0f);
             ml.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
             s.metricsPanel = (RectTransform)ml.parent.parent;
+            // demo mode OFF: shown instead of the simulated metrics / questions / comments / recording
+            var noteSec = Section(ml, "Classroom data");
+            var note = Secondary(noteSec, "Note", "Live metrics, questions, comments and recording come from the classroom server. They show here once it is connected.");
+            note.enableWordWrapping = true;
+            note.overflowMode = TextOverflowModes.Overflow;
+            s.backendNote = noteSec.gameObject;
+            noteSec.gameObject.SetActive(false);
             var sec = Section(ml, "Live metrics");
+            s.simulatedOnly.Add(sec.gameObject);
             var setBg = Img(sec, "Settings", circle, ColorRole.PrimarySoft);
             setBg.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             Place(setBg.rectTransform, 1f, 1f, 76f, 76f, -32f, -24f);
@@ -294,11 +303,13 @@ namespace MediSimVR.EditorTools
             LE(s.moodText, TextBoxH(TextRole.Caption));
             GameObject newChip;
             sec = SectionWithChip(ml, "Questions (0)", "New", ColorRole.Primary, out s.questionsTitle, out newChip);
+            s.simulatedOnly.Add(sec.gameObject);
             s.questionsNew = newChip;
             s.questionTemplate = LineRow(RowsBox(sec, "Questions", 12f), "QuestionRow", true);
             s.noQuestions = Secondary(sec, "None", "No questions yet");
             LE(s.noQuestions, TextBoxH(TextRole.Caption));
             sec = Section(ml, "Live comments");
+            s.simulatedOnly.Add(sec.gameObject);
             s.commentsTitle = sec.Find("Title").GetComponent<TextMeshProUGUI>();
             s.commentTemplate = LineRow(RowsBox(sec, "Comments", 12f), "CommentRow", false);
             sec = Section(ml, "Sound control");
@@ -310,8 +321,11 @@ namespace MediSimVR.EditorTools
             Place((RectTransform)s.muteAllSwitch.transform, 1f, 0.5f, 120f, 68f);
             TextMeshProUGUI vl;
             var st = SectionTitle(ml, "StudentsTitle", "Students");
+            s.simulatedOnly.Add(st.gameObject);
             LE(st, TextBoxH(TextRole.Body));
-            s.metricRowTemplate = StudentRow(RowsBox(ml, "MetricRows"), "MetricRow", true, true, true);
+            var metricRows = RowsBox(ml, "MetricRows");
+            s.simulatedOnly.Add(metricRows.gameObject);
+            s.metricRowTemplate = StudentRow(metricRows, "MetricRow", true, true, true);
 
             // ---- right: class overview + compact student rows
             var sl = ScrollList(s.transform, "StudentsPanel", H, LiveSessionScreen.BarH);
@@ -331,11 +345,12 @@ namespace MediSimVR.EditorTools
             pl.GetComponent<VerticalLayoutGroup>().spacing = CardGap;
             s.studentPanel = (RectTransform)pl.parent.parent;
             sec = Section(pl, "My Quest");
-            s.myQuestText = RowTitle(sec, "Quest", "Quest-A1B2  •  86% battery");
+            s.myQuestText = Shrink(RowTitle(sec, "Quest", "Quest-A1B2  •  86% battery"));
             LE(s.myQuestText, TextBoxH(TextRole.Body));
             s.myStatusText = Secondary(sec, "Status", "In class");
             LE(s.myStatusText, TextBoxH(TextRole.Caption));
             sec = Section(pl, "My focus");
+            s.simulatedOnly.Add(sec.gameObject);
             s.myAttention = Meter(sec, "Attention", ColorRole.Primary);
             s.myEngagement = Meter(sec, "Engagement", ColorRole.Success);
             sec = Section(pl, "Sound");
@@ -426,6 +441,7 @@ namespace MediSimVR.EditorTools
             s.pauseSessionButton = ActionTile(tiles, "Pause", "pause", ColorRole.Primary);
             s.endButton = ActionTile(tiles, "End Class", "stop", ColorRole.Danger);
             s.recordButton = ActionTile(tiles, "Record", "circle", ColorRole.Danger);
+            s.simulatedOnly.Add(s.recordButton.transform.parent.gameObject);   // only a timer today
             s.recordLabel = s.recordButton.transform.Find("Label").GetComponent<TextMeshProUGUI>();
             s.recordCard = (Image)s.recordButton.targetGraphic;
             s.recordCard.GetComponent<ThemedColor>().enabled = false;   // the screen colours it (red while recording)
@@ -476,6 +492,7 @@ namespace MediSimVR.EditorTools
             s.absentNames.overflowMode = TextOverflowModes.Overflow;
 
             sec = Section(list, "Engagement and attention");
+            s.engagementSection = sec.gameObject;
             FieldLabel(sec, "Class average");
             s.classEngagement = Meter(sec, "Engagement", ColorRole.Secondary);
             s.classAttention = Meter(sec, "Attention", ColorRole.Primary);

@@ -54,6 +54,14 @@ namespace MediSimVR.EditorTools
         static TextMeshProUGUI SmallLabel(Transform p, string name, string text, ColorRole role = ColorRole.SubText)
         { return Txt(p, name, text, TextRole.Small, role, TextWeight.SemiBold); }
 
+        // a text that may hold a long device / PC name: it shrinks (down to 70 %) instead of being cut
+        static T Shrink<T>(T t, float min = 0.7f) where T : TMP_Text
+        {
+            var th = t.GetComponent<ThemedText>();
+            if (th != null) { th.shrinkToFit = true; th.shrinkMin = min; th.Apply(); }
+            return t;
+        }
+
         // ---------- buttons ----------
         // one component for every text button; the caller places it (Place / layout). h < 0 = default height of the kind.
         static Button Btn(Transform parent, string name, BtnKind kind, string icon, string label, out TextMeshProUGUI text, float h = -1f)

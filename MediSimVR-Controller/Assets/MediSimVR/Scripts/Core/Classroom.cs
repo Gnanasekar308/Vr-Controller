@@ -408,8 +408,11 @@ namespace MediSimVR
                 };
             }
             FocusStudentId = IsStudent ? StudentId : FirstPresent(m);
-            for (int i = 0; i < DemoConfig.StartQuestions; i++) AddLine(questions, DemoConfig.Questions, ref nextQuestion, m);
-            for (int i = 0; i < DemoConfig.StartComments; i++) AddLine(comments, DemoConfig.Comments, ref nextComment, m);
+            if (Simulated)
+            {
+                for (int i = 0; i < DemoConfig.StartQuestions; i++) AddLine(questions, DemoConfig.Questions, ref nextQuestion, m);
+                for (int i = 0; i < DemoConfig.StartComments; i++) AddLine(comments, DemoConfig.Comments, ref nextComment, m);
+            }
             Elapsed = 0f;
             State = IsStudent ? LiveState.Running : LiveState.Ready;   // a student joins a running class
             if (IsStudent) Log(SessionEventKind.Join, UserName + " joined");
@@ -574,6 +577,11 @@ namespace MediSimVR
         }
 
         // demo metrics: a random walk around each student's base while running; the bars animate in between
+        // the demo values (moving metrics, questions, comments) exist only in demo mode; with the real network these
+        // come from the classroom backend later (until then the live screen hides them)
+        public static bool Simulated { get { return SimulatedOverride ?? AppRoot.Demo; } }
+        public static bool? SimulatedOverride;   // tests only: render the demo-OFF live screen in demo mode
+
         public static void Tick(float dt)
         {
             if (Live == null) return;
@@ -588,6 +596,7 @@ namespace MediSimVR
             if (State != LiveState.Running) return;
             Elapsed += dt;
             if (Recording) RecordSeconds += dt;
+            if (!Simulated) return;
             if ((questionTimer += dt) >= DemoConfig.QuestionEvery) { questionTimer = 0f; AddLine(questions, DemoConfig.Questions, ref nextQuestion, Live); Fire(); }
             if ((commentTimer += dt) >= DemoConfig.CommentEvery) { commentTimer = 0f; AddLine(comments, DemoConfig.Comments, ref nextComment, Live); Fire(); }
             stepTimer += dt;

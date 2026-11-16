@@ -16,6 +16,8 @@ namespace MediSimVR
         public TextRole size = TextRole.Body;
         public TextWeight weight = TextWeight.Regular;
         public bool applyColor = true;   // false when another script owns the colour (tabs, status)
+        public bool shrinkToFit;         // long names (PC station names): the text gets smaller to fit ...
+        public float shrinkMin = 0.7f;   // ... down to this part of its size
 
         public static float BaseSize(TextRole r)
         {
@@ -35,7 +37,10 @@ namespace MediSimVR
             var t = GetComponent<TMP_Text>();
             if (t == null) return;
             if (applyColor) t.color = ThemeManager.Get(role);
-            t.fontSize = BaseSize(size) * ThemeManager.TextScale;
+            float fs = BaseSize(size) * ThemeManager.TextScale;
+            t.fontSize = fs;
+            t.enableAutoSizing = shrinkToFit;
+            if (shrinkToFit) { t.fontSizeMax = fs; t.fontSizeMin = Mathf.Floor(fs * shrinkMin); }
             bool bold = weight == TextWeight.SemiBold || (weight == TextWeight.Heading && ThemeManager.Current.BoldHeadings);
             var f = ThemeManager.Font(bold);
             if (f != null && t.font != f) t.font = f;

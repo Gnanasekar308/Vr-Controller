@@ -62,7 +62,7 @@ namespace MediSimVR
                 });
             foreach (var f in DemoConfig.Files) Add(f.Id, f.Name, f.Kind, f.Size, f.Seconds, f.Top, f.Bottom, f.Text ?? "", f.Media);
             ControlFileId = DemoConfig.Files.Length > 0 ? DemoConfig.Files[0].Id : "";
-            Note("System", "Demo mode: realistic sample data, no Quest or network needed", NoteLevel.Info);
+            Note("System", "Demo mode: sample data, no network", NoteLevel.Info);
         }
 
         // demo session changes devices (battery, leave / join): tell the screens

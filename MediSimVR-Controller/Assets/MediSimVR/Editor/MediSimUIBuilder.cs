@@ -733,7 +733,7 @@ namespace MediSimVR.EditorTools
             var chip = Panel(list, "Target", 100f);
             var ti = Icon(chip, "Icon", "vr_headset", ColorRole.Primary, IconSize);
             Place(ti.rectTransform, 0f, 0.5f, IconSize, IconSize, CardPad, 0f);
-            s.targetText = Txt(chip, "Target", "Send to: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold);
+            s.targetText = Shrink(Txt(chip, "Target", "Send to: Quest-A1B2", TextRole.Caption, ColorRole.Text, TextWeight.SemiBold));
             Stretch(s.targetText.rectTransform, CardPad + IconSize + 20f, 0, 236, 0);
             s.changeTargetButton = Btn(chip, "Change", BtnKind.Tertiary, null, "Change", 72f);
             Place((RectTransform)s.changeTargetButton.transform, 1f, 0.5f, 196f, 72f, -16f, 0f);
@@ -741,6 +741,9 @@ namespace MediSimVR.EditorTools
             var holder = New("PreviewCard", list);
             LE(holder, 880f);
             s.preview = PreviewCard(holder, "Tap Select to choose a video, audio, image or text");
+            // Live Scene (move and rotate the objects on the Quests)
+            TextMeshProUGUI sceneSub;
+            s.sceneButton = SettingRow(list, "view_in_ar", "Live Scene", "Move and rotate objects on the Quests", out sceneSub);
 
             // ---- bottom buttons: Select (secondary) + Send (primary), same height
             var bar = New("BottomBar", s.transform);
@@ -814,7 +817,8 @@ namespace MediSimVR.EditorTools
             TextMeshProUGUI title, subT;
             Button backB;
             // header: title + Link (manual IPs); the connection status chip sits in the subtitle line
-            var hdr = Header(s.transform, "Live Scene", "", false, out title, out subT, out backB);
+            var hdr = Header(s.transform, "Live Scene", "", true, out title, out subT, out backB);
+            s.backButton = backB;   // back to the screen that opened the Scene
             s.linkButton = CircleButton(hdr, "Link", "link", 1f, -48f, 118f);
             s.chrome.Add(hdr.gameObject);
 

@@ -17,6 +17,7 @@ namespace MediSimVR
         public StudentRowView studentTemplate;
         public TimelineRowView timelineTemplate;
         public Button shareButton, dashboardButton;
+        public UnityEngine.GameObject engagementSection;   // simulated averages: demo mode only
 
         private readonly List<StudentRowView> studentRows = new List<StudentRowView>();
         private readonly List<TimelineRowView> timelineRows = new List<TimelineRowView>();
@@ -48,6 +49,7 @@ namespace MediSimVR
         {
             var r = Classroom.LastReport;
             emptyText.gameObject.SetActive(r == null);
+            if (engagementSection != null) engagementSection.SetActive(Classroom.Simulated);
             if (r == null) { subtitleText.text = "No session ended yet"; return; }
             subtitleText.text = r.Meeting + "  •  " + r.Date;
             infoText.text = "Meeting<pos=34%>" + r.Meeting + "\nTopic<pos=34%>" + r.Topic + "\nDate<pos=34%>" + r.Date +

@@ -27,7 +27,7 @@ namespace MediSimVR
         public TMP_Text fileName, fileInfo, previewStatus, previewBadge, elapsedText, durationText;
         public RectTransform progressFill;
         public GameObject progressRow;
-        public Button fileButton;
+        public Button fileButton, sceneButton;   // sceneButton: "Live Scene" row
 
         public PlaybackControlsView controls;
 
@@ -59,6 +59,7 @@ namespace MediSimVR
             controls.Acted += OnActed;
             changeTargetButton.onClick.AddListener(() => nav.Push(ScreenId.Devices));
             fileButton.onClick.AddListener(() => nav.Push(ScreenId.Send));
+            sceneButton.onClick.AddListener(() => nav.Push(ScreenId.Scene));
 
             phoneSoundSwitch.Changed += on => { SessionLog.PhoneSound = on; phone.SetMute(!on); if (!on) PhoneSpeech.Stop(); };
             // the mics are part of live voice: without the session backend they do nothing, so say so and keep the switch

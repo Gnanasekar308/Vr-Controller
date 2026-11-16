@@ -57,6 +57,9 @@ namespace MediSimVR
         public Slider myVolume;
         public TMP_Text myVolumeLabel;
         public ToggleSwitch myMuteSwitch;
+        // demo-only parts (metrics, questions, comments, per student meters, Record, My focus) + the note shown instead
+        public List<GameObject> simulatedOnly = new List<GameObject>();
+        public GameObject backendNote;
         // control bar
         public Button startButton, pauseSessionButton, endButton, recordButton, instructionButton, contentButton;
         public TMP_Text startLabel, recordLabel;
@@ -367,7 +370,7 @@ namespace MediSimVR
             bool present = !m.Absent.Contains(id);
             var x = Classroom.MetricsOf(id);
             var q = Classroom.Device(Svc, Classroom.QuestIdFor(m, id));
-            string body = "ID: " + s.Code + "\nQuest: " + (q != null ? q.Name + (q.Online ? "  (" + DeviceStatus.Label(DeviceStatus.Of(q)) + ", " + DeviceStatus.Battery(q) + ")" : "  (Offline)") : "none") +
+            string body = "ID: " + s.Code + "\nQuest: " + (q != null ? q.Name + (q.Online ? "  (" + DeviceStatus.Label(DeviceStatus.Of(q)) + (DeviceStatus.Battery(q).Length > 0 ? ", " + DeviceStatus.Battery(q) : "") + ")" : "  (Offline)") : "none") +
                 "\nStatus: " + (present ? "Present" + (x != null && x.Muted ? ", muted" : "") : "Absent");
             if (present && x != null)
                 body += "\nAttention " + Mathf.RoundToInt(x.Attention) + "%   Engagement " + Mathf.RoundToInt(x.Engagement) + "%" +
@@ -424,6 +427,10 @@ namespace MediSimVR
         {
             bool live = Classroom.Live != null;
             bool admin = Classroom.IsAdmin;
+            // demo mode OFF: no fake values in a real class
+            bool sim = Classroom.Simulated;
+            foreach (var go in simulatedOnly) if (go != null && go.activeSelf != sim) go.SetActive(sim);
+            if (backendNote != null && backendNote.activeSelf == sim) backendNote.SetActive(!sim);
             Show(header, !fullscreen);
             Show(emptyState, !live);
             Show(questCard, live);
@@ -521,7 +528,7 @@ namespace MediSimVR
 
             if (!Classroom.IsAdmin)
             {
-                myQuestText.text = q != null ? q.Name + "  •  " + (q.Online ? DeviceStatus.Battery(q) : "Offline") : "No Quest assigned";
+                myQuestText.text = q != null ? DeviceStatus.Join(q.Name, q.Online ? DeviceStatus.Battery(q) : "Offline") : "No Quest assigned";
                 myStatusText.text = (running ? "In class" : Classroom.State == LiveState.Paused ? "Class paused" : "Waiting") + (q != null ? "  •  " + DeviceStatus.Content(q, Svc) : "");
             }
 

@@ -17,7 +17,7 @@ namespace MediSimVR
         public void Bind(QuestDevice d, string content, Action onTap)
         {
             nameText.text = d.Name;
-            infoText.text = DeviceStatus.Battery(d) + "  •  " + (d.Ip.Length > 0 ? d.Ip : "—");
+            infoText.text = DeviceStatus.Join(DeviceStatus.Battery(d), d.Ip.Length > 0 ? d.Ip : "—");
 
             bool sel = d.Selected && d.Online;
             checkBox.sprite = sel ? boxFilled : boxOutline;

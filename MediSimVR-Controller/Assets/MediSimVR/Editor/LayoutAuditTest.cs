@@ -150,6 +150,11 @@ namespace MediSimVR.EditorTools
             canvasRt = (RectTransform)canvas.transform;
             screensRt = (RectTransform)canvasRt.Find("SafeArea/Screens");
             Debug.Log(Tag + "started: " + svc.GetType().Name + ", screens " + nav.screens.Count);
+            // with the PC server a "Quest" is a student station named after its PC: audit with long PC names
+            for (int i = 0; i < svc.Devices.Count; i++)
+                svc.Devices[i].Name = i == 0 ? "ANATOMY-LAB-PC-01" : "LAB-PC-" + (i + 1).ToString("00");
+            // and a device that does not report its battery (-1)
+            if (svc.Devices.Count > 1) svc.Devices[1].Battery = -1;
 
             DesignRules();
 
@@ -263,6 +268,13 @@ namespace MediSimVR.EditorTools
                 // the Live class is always landscape: metrics | Quest screen + control bar | students
                 string tag = canvasRt.sizeDelta.y > 1200f ? "live_tablet" : "live_phone";
                 yield return Visit(h, ++n, tag + "_metrics", () => nav.Tab(ScreenId.Live));
+                // demo mode OFF: the simulated metrics, questions, comments and Record are hidden, a note says why
+                yield return Visit(h, ++n, tag + "_demo_off", () => { Classroom.SimulatedOverride = false; Classroom.MetricsChanged(); });
+                bool hidden = !live.recordButton.gameObject.activeInHierarchy && !live.questionsTitle.gameObject.activeInHierarchy
+                              && live.backendNote.activeInHierarchy;
+                Check(hidden, tag + ": demo OFF hides the simulated live data (metrics, questions, comments, Record)");
+                Classroom.SimulatedOverride = null;
+                Classroom.MetricsChanged();
                 yield return Visit(h, ++n, tag + "_recording", () => Classroom.SetRecording(true));
                 Classroom.SetRecording(false);
                 yield return Visit(h, ++n, tag + "_columns_bottom", () =>
