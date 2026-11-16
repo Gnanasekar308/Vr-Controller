@@ -167,6 +167,7 @@ namespace MediSimVR
             Role = UserRole.None;
             UserName = "";
             StudentId = "";
+            ClassroomStations.Reset();   // demo OFF: the real stations take their seats again as the server lists them
             Students.Clear();
             foreach (var s in DemoConfig.Students)
                 Students.Add(new Student { Id = s.Id, Code = s.Code ?? "", Name = s.Name, Email = s.Email, BaseAttention = s.Attention, BaseEngagement = s.Engagement, BaseEmotion = s.Emotion,
@@ -267,12 +268,16 @@ namespace MediSimVR
         // every Quest has its student (name + ID entered on the headset; demo: DemoConfig.Quests)
         public static string StudentOfQuest(string questId)
         {
+            string bound = ClassroomStations.StudentOf(questId);   // demo OFF: a real station of the PC server
+            if (bound.Length > 0) return bound;
             foreach (var q in DemoConfig.Quests) if (q.Id == questId) return q.StudentId ?? "";
             return "";
         }
 
         public static string QuestOfStudent(string studentId)
         {
+            string station = ClassroomStations.StationOf(studentId);   // demo OFF: a real station of the PC server
+            if (station.Length > 0) return station;
             foreach (var q in DemoConfig.Quests) if (q.StudentId == studentId) return q.Id;
             return "";
         }

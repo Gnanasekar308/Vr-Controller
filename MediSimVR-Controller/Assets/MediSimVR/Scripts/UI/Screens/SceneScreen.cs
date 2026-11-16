@@ -56,8 +56,10 @@ namespace MediSimVR
         public ChipToggle uniformChip;
 
         public const string IpsKey = "msvr_scene_ips";
+        // the PC server IP (server backend) or the receiver IPs (direct Quest protocol)
+        private static string ManualKey { get { return MedisimBackend.UseServer ? MedisimServer.ManualIpKey : IpsKey; } }
 
-        private ISceneLink client;   // SceneSyncClient (network) or DemoSceneLink (demo mode)
+        private ISceneLink client;   // ServerSceneLink / SceneSyncClient (network, see MedisimBackend) or DemoSceneLink (demo mode)
         private SceneDocument doc;
         private SceneEditController edit;
         private RenderTexture rt;
@@ -86,8 +88,8 @@ namespace MediSimVR
             base.Init(n);
             RemoveOldSaveFile();
             doc = new SceneDocument();
-            client = AppRoot.Demo ? (ISceneLink)new DemoSceneLink() : new SceneSyncClient();
-            client.SetManualIps(PlayerPrefs.GetString(IpsKey, ""));
+            client = AppRoot.Demo ? (ISceneLink)new DemoSceneLink() : MedisimBackend.CreateSceneLink();
+            client.SetManualIps(PlayerPrefs.GetString(ManualKey, ""));
             edit = new SceneEditController(doc, world, gizmo, rig, worldCamera);
             input.Controller = edit;
 
@@ -567,9 +569,10 @@ namespace MediSimVR
         private void AskIps()
         {
             if (AppRoot.Demo) { nav.Say("Demo mode: no network. Turn demo mode off in Settings to connect."); return; }
-            string current = PlayerPrefs.GetString(IpsKey, "");
-            nav.popup.Show("Receiver IPs",
-                "Type the IP of each PC / Quest, separated by commas. Leave empty to use Wi-Fi discovery only.",
+            string current = PlayerPrefs.GetString(ManualKey, "");
+            nav.popup.Show(MedisimBackend.UseServer ? "PC server IP" : "Receiver IPs",
+                MedisimBackend.UseServer ? "Type the IP of the PC that runs the Medisim server. Leave empty to find it on this Wi-Fi."
+                    : "Type the IP of each PC / Quest, separated by commas. Leave empty to use Wi-Fi discovery only.",
                 "Save", null, "Cancel", "192.168.1.20, 192.168.1.31", text =>
                 {
                     List<string> bad;

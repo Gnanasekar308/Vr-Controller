@@ -5,7 +5,8 @@ namespace MediSimVR
 {
     // Entry point (on the "App" object). The UI only talks to the service interfaces:
     //   demo mode ON (default, DemoConfig): MockControllerService + MockSessionService, no device or network needed
-    //   demo mode OFF: NetworkControllerService (real Quests); Session = null until the real backend exists
+    //   demo mode OFF: the real backend chosen by MedisimBackend: the Medisim PC server (ServerControllerService +
+    //                  ServerSessionService) or the direct Quest protocol (NetworkControllerService, no session)
     public class AppRoot : MonoBehaviour
     {
         public static IControllerService Service { get; private set; }
@@ -30,8 +31,8 @@ namespace MediSimVR
             }
             else
             {
-                Service = new NetworkControllerService();
-                Session = null;
+                Service = MedisimBackend.CreateController();
+                Session = MedisimBackend.CreateSession(Service);
             }
             Picker = GetComponent<FilePicker>();
             if (Picker == null) Picker = gameObject.AddComponent<FilePicker>();

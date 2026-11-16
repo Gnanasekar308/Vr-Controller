@@ -33,10 +33,17 @@ namespace MediSimVR
             });
             customizationRow.onClick.AddListener(() => nav.Push(ScreenId.EditApp));
             networkRow.onClick.AddListener(() => nav.popup.Show("Network",
-                "Discovery: UDP 8766\nControl: TCP 8765\nTransfer: TCP 8767\nScene: UDP 8771\n\n" +
-                (AppRoot.Demo ? "Demo mode: nothing is sent, all data is sample data." : "Real network: Quests on this Wi-Fi are found automatically."), "OK"));
-            connectionRow.onClick.AddListener(() => nav.popup.Show("Manual IP Connect", "Enter the Quest IP address", "Add",
-                null, "Cancel", "e.g. 192.168.1.30", ip => { Svc.AddManualDevice(ip); nav.Say("Device added"); }));
+                MedisimBackend.NetworkInfo() + "\n\n" +
+                (AppRoot.Demo ? "Demo mode: nothing is sent, all data is sample data."
+                    : MedisimBackend.UseServer ? "Real network: the PC server and its stations are found automatically on this Wi-Fi."
+                    : "Real network: Quests on this Wi-Fi are found automatically."), "OK"));
+            connectionRow.onClick.AddListener(() => nav.popup.Show("Manual IP Connect",
+                MedisimBackend.UseServer ? "Enter the IP address of the PC that runs the Medisim server (empty = find it automatically)" : "Enter the Quest IP address",
+                "Add", null, "Cancel", "e.g. 192.168.1.30", ip =>
+                {
+                    Svc.AddManualDevice(ip);
+                    nav.Say(MedisimBackend.UseServer ? "PC server address saved" : "Device added");
+                }));
             notificationRow.onClick.AddListener(() =>
             {
                 Svc.NotificationsEnabled = !Svc.NotificationsEnabled;
