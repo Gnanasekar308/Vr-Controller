@@ -124,6 +124,7 @@ namespace MediSimVR
             view.Init(o.id, new Renderer[] { mr }, mat, outlineMaterial);
             view.Apply(o.pose);
             views[o.id] = view;
+            StationModels.Attach(view, body, baseMaterial);   // PC server backend: the station's real object replaces the shape
         }
     }
 }

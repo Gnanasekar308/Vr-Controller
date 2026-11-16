@@ -10,10 +10,13 @@ namespace MediSimVR
     //   the stations publish their room objects to the server; the phone loads them from GET /api/scene
     //   and sends object poses to POST /api/scene/state (changed objects, at most ~15 times per second).
     // There is ONE shared scene: every station applies the same poses (same as SceneSync).
+    // The scene is loaded again when the station's object list changes (an object was added, removed or looks
+    // different), and StationModels gets the real look of the objects (mesh, colours, textures).
     public class ServerSceneLink : ISceneLink
     {
         private const float SendGap = 1f / 15f;
         private const float SceneRetry = 1f;
+        private const float ListCheck = 2f;   // look for a changed object list this often
         private const float TargetsEvery = 1f;
 
         public event Action TargetsChanged;
@@ -23,6 +26,7 @@ namespace MediSimVR
         private readonly List<string> names = new List<string>();
         private readonly Dictionary<string, ScenePoseDto> dirty = new Dictionary<string, ScenePoseDto>();
         private bool started, asking, sending;
+        private long listVersion = -1;
         private float nextAsk, nextSend, nextTargets;
 
         public IReadOnlyList<string> TargetNames { get { return names; } }
@@ -63,6 +67,13 @@ namespace MediSimVR
                 return;
             }
 
+            if (!asking && server.HasServer && now >= nextAsk)
+            {
+                nextAsk = now + ListCheck;
+                StationModels.Retry();
+                AskScene();   // only reloads when the object list changed
+            }
+
             if (dirty.Count > 0 && !sending && now >= nextSend)
             {
                 nextSend = now + SendGap;
@@ -88,6 +99,7 @@ namespace MediSimVR
             {
                 server.SetManualIp(first);
                 HasScene = false; // load the scene from the new server
+                listVersion = -1;
             }
 
             return bad;
@@ -132,12 +144,20 @@ namespace MediSimVR
             server.Request("GET", "/api/scene", null, r =>
             {
                 asking = false;
-                if (HasScene || !r.Ok || r.Code == 204 || string.IsNullOrEmpty(r.Text)) return;
+                if (!r.Ok || r.Code == 204 || string.IsNullOrEmpty(r.Text)) return;
 
                 ServerScene scene = null;
                 try { scene = JsonUtility.FromJson<ServerScene>(r.Text); }
                 catch (Exception e) { Debug.LogWarning("[MediSimVR] Bad scene from the server: " + e.Message); }
                 if (scene == null || scene.objects == null) return;
+                if (HasScene && scene.listVersion == listVersion) return;   // same objects as before
+
+                // how the objects look (before the views are created)
+                ServerSceneLook look = null;
+                try { look = JsonUtility.FromJson<ServerSceneLook>(r.Text); }
+                catch (Exception) { }
+                StationModels.SetScene(look);
+                listVersion = scene.listVersion;
 
                 var list = new List<SyncObjectInfo>();
                 foreach (var o in scene.objects) if (o != null && o.IsValid()) list.Add(o);
@@ -170,6 +190,7 @@ namespace MediSimVR
         public void Dispose()
         {
             dirty.Clear();
+            StationModels.Clear();
         }
     }
 }

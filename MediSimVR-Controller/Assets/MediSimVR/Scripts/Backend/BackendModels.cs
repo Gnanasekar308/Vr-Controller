@@ -90,7 +90,63 @@ namespace MediSimVR
     {
         public string source = "";
         public long seq;
+        public long listVersion;   // grows when the station's object list (or how an object looks) changes
         public SyncObjectInfo[] objects;
+    }
+
+    // The same answer of GET /api/scene, read again for the fields SyncObjectInfo does not have
+    [Serializable]
+    public class ServerSceneLook
+    {
+        public ServerObjectLook[] objects;
+    }
+
+    [Serializable]
+    public class ServerObjectLook
+    {
+        public string id = "";
+        public string model = "";   // hash of the object's SceneModelDto on the server, "" = none (plain shape)
+    }
+
+    // How a station object really looks (GET /api/scene/models/<hash>): meshes in the object's own space,
+    // their colours and textures. Written by the station (StationModelExporter), drawn by StationModels.
+    [Serializable]
+    public class SceneModelDto
+    {
+        public int v = 1;
+        public SceneModelPartDto[] parts;
+        public SceneModelMaterialDto[] materials;
+        public SceneModelTextureDto[] textures;
+    }
+
+    [Serializable]
+    public class SceneModelPartDto
+    {
+        public float[] vertices;   // x y z, ...
+        public float[] normals;    // x y z, ... (empty = calculated here)
+        public float[] uv;         // u v, ... (empty = none)
+        public int[] triangles;
+        public int material;
+    }
+
+    [Serializable]
+    public class SceneModelMaterialDto
+    {
+        public float[] color = { 1f, 1f, 1f, 1f };
+        public int texture = -1;
+        public bool transparent;
+        public bool unlit;
+        public bool twoSided;
+        public float smoothness = 0.2f;
+        public float metallic;
+    }
+
+    [Serializable]
+    public class SceneModelTextureDto
+    {
+        public int width;
+        public int height;
+        public string png = "";   // base64
     }
 
     [Serializable]
