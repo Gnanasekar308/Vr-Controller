@@ -907,6 +907,7 @@ namespace MediSimVR.EditorTools
             s.undoButton = ViewPill(frame.transform, "Undo", "Undo", 0f, 20f, 20f, 116f);
             s.redoButton = ViewPill(frame.transform, "Redo", "Redo", 0f, 144f, 20f, 116f);
             s.resetButton = ViewPill(frame.transform, "Reset", "Reset", 0f, 268f, 20f, 116f);
+            s.saveButton = ViewPill(frame.transform, "Save", "Save", 0f, 392f, 20f, 116f);   // movements -> JSON file on the PC
             s.viewTopButton = ViewPill(frame.transform, "ViewTop", "Top", 1f, -20f, 20f, 116f);
             s.viewFrontButton = ViewPill(frame.transform, "ViewFront", "Front", 1f, -20f, 96f, 116f);
             s.viewSideButton = ViewPill(frame.transform, "ViewSide", "Side", 1f, -20f, 172f, 116f);

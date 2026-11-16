@@ -32,6 +32,7 @@ namespace MediSimVR
         public Button undoButton, redoButton, viewTopButton, viewFrontButton, viewSideButton, view3DButton, focusButton;
 
         public Button objectsButton, inspectorButton, resetButton;
+        public Button saveButton;   // Save: the PC server writes the recorded object movements to a JSON file on the PC
 
         // viewport: placeholder until a scene arrives, demo badge, full view (hides the header, toolbars and bottom bar)
         public GameObject placeholder, demoBadge;
@@ -135,6 +136,7 @@ namespace MediSimVR
             hierarchyClose.onClick.AddListener(() => ShowSheet(null));
             inspectorClose.onClick.AddListener(() => ShowSheet(null));
             resetButton.onClick.AddListener(ResetAll);
+            if (saveButton != null) saveButton.onClick.AddListener(SaveMovements);
             copyButton.onClick.AddListener(Copy);
             pasteButton.onClick.AddListener(Paste);
             uniformButton.onClick.AddListener(() => { uniformScale = !uniformScale; uniformChip.Set(uniformScale); });
@@ -475,6 +477,23 @@ namespace MediSimVR
         {
             int n = doc.ResetAll();
             nav.Say(n > 0 ? "Reset " + n + " object(s) to the scene start (Undo brings it back)" : "Nothing to reset");
+        }
+
+        // Save: every object movement since the last save becomes one JSON file on the server PC (SceneRecordings folder)
+        private bool savingMovements;
+
+        private void SaveMovements()
+        {
+            if (AppRoot.Demo) { nav.Say("Demo mode: movements are not recorded. Turn demo mode off in Settings."); return; }
+            if (!MedisimBackend.UseServer) { nav.Say("Saving movements needs the Medisim PC server"); return; }
+            if (savingMovements) return;
+            savingMovements = true;
+            nav.Say("Saving the movements on the PC...");
+            MedisimBackend.SaveSceneRecording((ok, message) =>
+            {
+                savingMovements = false;
+                nav.Say(message);
+            });
         }
 
         private void RefreshHistory()

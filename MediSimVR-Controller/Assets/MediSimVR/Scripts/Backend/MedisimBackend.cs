@@ -46,6 +46,34 @@ namespace MediSimVR
             return id;
         }
 
+        // Live Scene > Save: the PC server writes every object movement since the last save to a JSON file
+        // (SceneRecordings folder next to the server). done(ok, message for the user) runs on the main thread.
+        public static void SaveSceneRecording(Action<bool, string> done)
+        {
+            MedisimServer.Instance.Request("POST", "/api/scene/recording/save", "{}", r =>
+            {
+                if (!r.Ok)
+                {
+                    done(false, r.Code == 404 ? "The PC server is too old to save movements: update the server" : "Not saved: " + r);
+                    return;
+                }
+
+                SceneRecordingReply reply = null;
+                try { reply = JsonUtility.FromJson<SceneRecordingReply>(r.Text); }
+                catch (Exception) { }
+
+                if (reply == null || string.IsNullOrEmpty(reply.saved))
+                {
+                    done(false, reply != null && !string.IsNullOrEmpty(reply.error) ? reply.error : "Not saved: no answer from the PC server");
+                    return;
+                }
+
+                // short text for the toast; the file name goes to the log
+                Debug.Log("[MediSimVR] Scene movements saved on " + reply.machine + ": " + reply.saved + " (" + reply.samples + " samples, " + reply.seconds + " s)");
+                done(true, "Saved " + reply.samples + " movements on " + (reply.machine.Length > 0 ? reply.machine : "the PC"));
+            }, 15000);
+        }
+
         // Settings > Network text.
         public static string NetworkInfo()
         {

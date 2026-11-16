@@ -116,6 +116,17 @@ namespace MediSimVR
         public string[] targetDeviceIds;
     }
 
+    // Answer of POST /api/scene/recording/save (the Live Scene's Save button)
+    [Serializable]
+    public class SceneRecordingReply
+    {
+        public string saved = "";     // "SceneRecordings/<file>.json" on the server PC, "" = nothing was saved
+        public int samples;
+        public float seconds;
+        public string machine = "";
+        public string error = "";
+    }
+
     [Serializable]
     public class SessionUploadRequest
     {
